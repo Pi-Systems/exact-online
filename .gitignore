@@ -1,0 +1,13 @@
+###> Defaults ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/var/
+/vendor/
+.idea
+###< Defaults ###
+
+###> ExactOnline ###
+/src/Model/Exact
+/src/Resources/ExactDocumentationCache
+###< ExactOnline ###

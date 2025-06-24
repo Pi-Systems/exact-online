@@ -1,0 +1,422 @@
+Accountancy 	AccountInvolvedAccounts 	/api/v1/{division}/accountancy/AccountInvolvedAccounts 	GET, POST, PUT, DELETE 		Accountancy practicemanagement
+Accountancy 	AccountOwners 	/api/v1/{division}/accountancy/AccountOwners 	GET, POST, PUT, DELETE 		Accountancy practicemanagement
+Accountancy 	InvolvedUserRoles 	/api/v1/{division}/accountancy/InvolvedUserRoles 	GET, POST, PUT, DELETE 		Accountancy practicemanagement
+Accountancy 	InvolvedUsers 	/api/v1/{division}/accountancy/InvolvedUsers 	GET, POST, PUT, DELETE 		Accountancy practicemanagement
+Accountancy 	SolutionLinks 	/api/v1/{division}/accountancy/SolutionLinks 	GET, POST, PUT, DELETE 		Accountancy practicemanagement
+Accountancy 	TaskTypes 	/api/v1/{division}/accountancy/TaskTypes 	GET, POST, PUT, DELETE 		Accountancy practicemanagement
+Activities 	CommunicationNotes 	/api/v1/{division}/activities/CommunicationNotes 	GET, POST 		Organization workflow
+Activities 	Complaints 	/api/v1/{division}/activities/Complaints 	GET, POST 		Organization workflow
+Activities 	Events 	/api/v1/{division}/activities/Events 	GET, POST 		Organization workflow
+Activities 	ServiceRequests 	/api/v1/{division}/activities/ServiceRequests 	GET, POST 		Organization workflow
+Activities 	Tasks 	/api/v1/{division}/activities/Tasks 	GET, POST 		Organization workflow
+Assets 	AssetGroups 	/api/v1/{division}/assets/AssetGroups 	GET 		Financial assets
+Assets 	Assets 	/api/v1/{division}/assets/Assets 	GET 		Financial assets
+Assets 	CommercialBuildingValues 	/api/v1/{division}/assets/CommercialBuildingValues 	GET 		Financial assets
+Assets 	DepreciationMethods 	/api/v1/{division}/assets/DepreciationMethods 	GET, POST, PUT, DELETE 		Financial assets
+Budget 	Budgets 	/api/v1/{division}/budget/Budgets 	GET 		Financial budgets
+Budget 	BudgetScenarios (BETA) 	/api/v1/beta/{division}/budget/BudgetScenarios 	GET 		Financial budgets
+Bulk 	Cashflow/Payments 	/api/v1/{division}/bulk/Cashflow/Payments 	GET 		Financial cashflow
+Bulk 	Cashflow/Receivables 	/api/v1/{division}/bulk/Cashflow/Receivables 	GET 		Financial receivables
+Bulk 	CRM/Accounts 	/api/v1/{division}/bulk/CRM/Accounts 	GET 		Crm accounts
+Bulk 	CRM/Addresses 	/api/v1/{division}/bulk/CRM/Addresses 	GET 		Crm accounts
+Bulk 	CRM/Contacts 	/api/v1/{division}/bulk/CRM/Contacts 	GET 		Crm accounts
+Bulk 	CRM/QuotationLines 	/api/v1/{division}/bulk/CRM/QuotationLines 	GET 		Crm quotes
+Bulk 	CRM/Quotations 	/api/v1/{division}/bulk/CRM/Quotations 	GET 		Crm quotes
+Bulk 	Documents/DocumentAttachments 	/api/v1/{division}/bulk/Documents/DocumentAttachments 	GET 		Organization documents
+Bulk 	Documents/Documents 	/api/v1/{division}/bulk/Documents/Documents 	GET 		Organization documents
+Bulk 	Financial/GLAccounts 	/api/v1/{division}/bulk/Financial/GLAccounts 	GET 		Financial generalledgers
+Bulk 	Financial/GLClassifications 	/api/v1/{division}/bulk/Financial/GLClassifications 	GET 		Financial generalledgers
+Bulk 	Financial/TransactionLines 	/api/v1/{division}/bulk/Financial/TransactionLines 	GET 		Financial accounting
+Bulk 	Logistics/Items 	/api/v1/{division}/bulk/Logistics/Items 	GET 		Logistics items
+Bulk 	Logistics/SalesItemPrices 	/api/v1/{division}/bulk/Logistics/SalesItemPrices 	GET 		Sales prices
+Bulk 	Project/ProjectWBS 	/api/v1/{division}/bulk/Project/ProjectWBS 	GET 		Projects projects
+Bulk 	SalesInvoice/SalesInvoiceLines 	/api/v1/{division}/bulk/SalesInvoice/SalesInvoiceLines 	GET 		Sales invoices
+Bulk 	SalesInvoice/SalesInvoices 	/api/v1/{division}/bulk/SalesInvoice/SalesInvoices 	GET 		Sales invoices
+Bulk 	SalesOrder/GoodsDeliveries 	/api/v1/{division}/bulk/SalesOrder/GoodsDeliveries 	GET 		Logistics wms
+Bulk 	SalesOrder/GoodsDeliveryLines 	/api/v1/{division}/bulk/SalesOrder/GoodsDeliveryLines 	GET 		Logistics wms
+Bulk 	SalesOrder/SalesOrderLines 	/api/v1/{division}/bulk/SalesOrder/SalesOrderLines 	GET 		Sales orders
+Bulk 	SalesOrder/SalesOrders 	/api/v1/{division}/bulk/SalesOrder/SalesOrders 	GET 		Sales orders
+Cashflow 	AllocationRule (BETA) 	/api/v1/beta/{division}/cashflow/AllocationRule 	GET, POST, PUT, DELETE 		Financial cashflow
+Cashflow 	Banks 	/api/v1/{division}/cashflow/Banks 	GET 		Financial cashflow
+Cashflow 	DirectDebitMandates 	/api/v1/{division}/cashflow/DirectDebitMandates 	GET, POST, PUT, DELETE 		Financial cashflow
+Cashflow 	PaymentConditions 	/api/v1/{division}/cashflow/PaymentConditions 	GET, POST 		Financial cashflow
+Cashflow 	Payments 	/api/v1/{division}/cashflow/Payments 	GET, PUT 		Financial cashflow
+Cashflow 	ProcessPayments 	/api/v1/{division}/cashflow/ProcessPayments 	POST 		Financial cashflow
+Cashflow 	Receivables 	/api/v1/{division}/cashflow/Receivables 	GET, PUT 		Financial receivables
+CRM 	AcceptQuotation 	/api/v1/{division}/crm/AcceptQuotation 	POST 		Crm quotes
+CRM 	AccountClasses 	/api/v1/{division}/crm/AccountClasses 	GET 		Crm accounts
+CRM 	AccountClassificationNames 	/api/v1/{division}/crm/AccountClassificationNames 	GET 		Crm accounts
+CRM 	AccountClassifications 	/api/v1/{division}/crm/AccountClassifications 	GET 		Crm accounts
+CRM 	AccountDocumentFolders 	AccountDocumentFolders - Function Details 	GET 		Organization documents
+CRM 	AccountDocuments 	AccountDocuments - Function Details 	GET 		Organization documents
+CRM 	AccountDocumentsCount 	AccountDocumentsCount - Function Details 	GET 		Organization documents
+CRM 	Accounts 	/api/v1/{division}/crm/Accounts 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Crm accounts
+CRM 	Addresses 	/api/v1/{division}/crm/Addresses 	GET, POST, PUT, DELETE 		Crm accounts
+CRM 	AddressStates 	/api/v1/{division}/crm/AddressStates 	GET 		Crm accounts
+CRM 	BankAccounts 	/api/v1/{division}/crm/BankAccounts 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Crm accounts
+CRM 	Contacts 	/api/v1/{division}/crm/Contacts 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Crm accounts
+CRM 	DefaultAddressForAccount 	DefaultAddressForAccount - Function Details 	GET 		Crm accounts
+CRM 	Documents 	/api/v1/{division}/read/crm/Documents 	GET 		Organization documents
+CRM 	DocumentsAttachments 	/api/v1/{division}/read/crm/DocumentsAttachments 	GET 		Organization documents
+CRM 	EmailWithSignOffQuotation 	/api/v1/{division}/crm/EmailWithSignOffQuotation 	POST 		Crm quotes
+CRM 	HostingOpportunities 	/api/v1/{division}/crm/HostingOpportunities 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Hosting hosting
+CRM 	LeadPurposes 	/api/v1/{division}/crm/LeadPurposes 	GET 		Crm accounts
+CRM 	LeadSources 	/api/v1/{division}/crm/LeadSources 	GET 		Crm accounts
+CRM 	Opportunities 	/api/v1/{division}/crm/Opportunities 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Crm opportunities
+CRM 	OpportunityContacts 	/api/v1/{division}/read/crm/OpportunityContacts 	GET 		Crm opportunities
+CRM 	OpportunityDocuments 	OpportunityDocuments - Function Details 	GET 		Crm opportunities
+CRM 	OpportunityDocumentsCount 	OpportunityDocumentsCount - Function Details 	GET 		Crm opportunities
+CRM 	OptionalQuotationLineID 	/api/v1/{division}/crm/OptionalQuotationLineID 	POST 		Crm quotes
+CRM 	PrintQuotation 	/api/v1/{division}/crm/PrintQuotation 	POST 		Crm quotes
+CRM 	QuotationLines 	/api/v1/{division}/crm/QuotationLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Crm quotes
+CRM 	QuotationOrderChargeLines 	/api/v1/{division}/crm/QuotationOrderChargeLines 	GET, POST, PUT, DELETE 		Crm quotes
+CRM 	Quotations 	/api/v1/{division}/crm/Quotations 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Crm quotes
+CRM 	ReasonCodes 	/api/v1/{division}/crm/ReasonCodes 	GET 		Crm quotes
+CRM 	RejectQuotation 	/api/v1/{division}/crm/RejectQuotation 	POST 		Crm quotes
+CRM 	ReopenQuotation 	/api/v1/{division}/crm/ReopenQuotation 	POST 		Crm quotes
+CRM 	ReviewQuotation 	/api/v1/{division}/crm/ReviewQuotation 	POST 		Crm quotes
+CustomField 	CustomFields 	CustomFields - Function Details 	GET 		Organization extensibility
+CustomField 	UpdateCustomField 	UpdateCustomField - Function Details 	POST 		Organization extensibility
+Documents 	DocumentAttachments 	/api/v1/{division}/documents/DocumentAttachments 	GET, POST, DELETE 	This endpoint has a webhook 	Organization documents
+Documents 	DocumentCategories 	/api/v1/{division}/documents/DocumentCategories 	GET 		Organization documents
+Documents 	DocumentFolders 	/api/v1/{division}/documents/DocumentFolders 	GET, POST, PUT, DELETE 		Organization documents
+Documents 	Documents 	/api/v1/{division}/documents/Documents 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Organization documents
+Documents 	DocumentTypeCategories 	/api/v1/{division}/documents/DocumentTypeCategories 	GET 		Organization documents
+Documents 	DocumentTypeFolders 	/api/v1/{division}/documents/DocumentTypeFolders 	GET, POST, PUT, DELETE 		Organization documents
+Documents 	DocumentTypes 	/api/v1/{division}/documents/DocumentTypes 	GET 		Organization documents
+Financial 	AgingOverview 	/api/v1/{division}/read/financial/AgingOverview 	GET 		Financial receivables, financial payables
+Financial 	AgingOverviewByAccount 	AgingOverviewByAccount - Function Details 	GET 		Financial receivables, financial payables
+Financial 	AgingPayablesList 	/api/v1/{division}/read/financial/AgingPayablesList 	GET 		Financial payables
+Financial 	AgingPayablesListByAgeGroup 	AgingPayablesListByAgeGroup - Function Details 	GET 		Financial payables
+Financial 	AgingReceivablesList 	/api/v1/{division}/read/financial/AgingReceivablesList 	GET 		Financial receivables
+Financial 	AgingReceivablesListByAgeGroup 	AgingReceivablesListByAgeGroup - Function Details 	GET 		Financial receivables
+Financial 	DeductibilityPercentages 	/api/v1/{division}/financial/DeductibilityPercentages 	GET 		Financial generalledgers
+Financial 	ExchangeRates 	/api/v1/{division}/financial/ExchangeRates 	GET, POST, PUT, DELETE 		Financial currencies
+Financial 	FinancialPeriods 	/api/v1/{division}/financial/FinancialPeriods 	GET 		Financial accounting
+Financial 	GLAccountClassificationMappings 	/api/v1/{division}/financial/GLAccountClassificationMappings 	GET, POST, PUT, DELETE 		Financial generalledgers
+Financial 	GLAccounts 	/api/v1/{division}/financial/GLAccounts 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Financial generalledgers
+Financial 	GLClassifications 	/api/v1/{division}/financial/GLClassifications 	GET 		Financial generalledgers
+Financial 	GLSchemes 	/api/v1/{division}/financial/GLSchemes 	GET 		Financial generalledgers
+Financial 	GLTransactionSources 	/api/v1/{division}/financial/GLTransactionSources 	GET 		Financial generalledgers
+Financial 	GLTransactionTypes 	/api/v1/{division}/financial/GLTransactionTypes 	GET 		Financial generalledgers
+Financial 	Journals 	/api/v1/{division}/financial/Journals 	GET, POST, PUT, DELETE 		Financial generalledgers
+Financial 	JournalStatusByFinancialPeriod 	JournalStatusByFinancialPeriod - Function Details 	GET 		Financial accounting
+Financial 	JournalStatusList 	/api/v1/{division}/read/financial/JournalStatusList 	GET 	This endpoint has a webhook 	Financial accounting
+Financial 	OfficialReturns 	/api/v1/{division}/financial/OfficialReturns 	GET, POST 		Financial returns
+Financial 	OutstandingInvoicesOverview 	/api/v1/{division}/read/financial/OutstandingInvoicesOverview 	GET 		Financial receivables, financial payables
+Financial 	PayablesList 	/api/v1/{division}/read/financial/PayablesList 	GET 		Financial payables
+Financial 	PayablesListByAccount 	PayablesListByAccount - Function Details 	GET 		Financial payables
+Financial 	PayablesListByAccountAndAgeGroup 	PayablesListByAccountAndAgeGroup - Function Details 	GET 		Financial payables
+Financial 	PayablesListByAgeGroup 	PayablesListByAgeGroup - Function Details 	GET 		Financial payables
+Financial 	ProcessReturn 	/api/v1/{division}/financial/ProcessReturn 	POST 		Financial returns
+Financial 	ProfitLossOverview 	/api/v1/{division}/read/financial/ProfitLossOverview 	GET 		Financial accounting
+Financial 	ReceivablesList 	/api/v1/{division}/read/financial/ReceivablesList 	GET 		Financial receivables
+Financial 	ReceivablesListByAccount 	ReceivablesListByAccount - Function Details 	GET 		Financial receivables
+Financial 	ReceivablesListByAccountAndAgeGroup 	ReceivablesListByAccountAndAgeGroup - Function Details 	GET 		Financial receivables
+Financial 	ReceivablesListByAgeGroup 	ReceivablesListByAgeGroup - Function Details 	GET 		Financial receivables
+Financial 	ReportingBalance 	/api/v1/{division}/financial/ReportingBalance 	GET 		Financial accounting
+Financial 	ReportingBalanceByClassification 	ReportingBalanceByClassification - Function Details 	GET 		Financial accounting
+Financial 	Returns 	/api/v1/{division}/read/financial/Returns 	GET 		Financial returns
+Financial 	RevenueList 	/api/v1/{division}/read/financial/RevenueList 	GET 		Financial accounting
+Financial 	RevenueListByYear 	RevenueListByYear - Function Details 	GET 		Financial accounting
+Financial 	RevenueListByYearAndStatus 	RevenueListByYearAndStatus - Function Details 	GET 		Financial accounting
+FinancialTransaction 	BankEntries 	/api/v1/{division}/financialtransaction/BankEntries 	GET, POST, DELETE 	This endpoint has a webhook 	Financial accounting
+FinancialTransaction 	BankEntryLines 	/api/v1/{division}/financialtransaction/BankEntryLines 	GET, POST 	This endpoint has a webhook 	Financial accounting
+FinancialTransaction 	CashEntries 	/api/v1/{division}/financialtransaction/CashEntries 	GET, POST, DELETE 	This endpoint has a webhook 	Financial accounting
+FinancialTransaction 	CashEntryLines 	/api/v1/{division}/financialtransaction/CashEntryLines 	GET, POST 	This endpoint has a webhook 	Financial accounting
+FinancialTransaction 	TransactionLines 	/api/v1/{division}/financialtransaction/TransactionLines 	GET 	This endpoint has a webhook 	Financial accounting
+General 	Currencies 	/api/v1/{division}/general/Currencies 	GET 		Financial currencies
+General 	Layouts 	/api/v1/{division}/general/Layouts 	GET 		-
+GeneralJournalEntry 	GeneralJournalEntries 	/api/v1/{division}/generaljournalentry/GeneralJournalEntries 	GET, POST, DELETE 	This endpoint has a webhook 	Financial accounting
+GeneralJournalEntry 	GeneralJournalEntryLines 	/api/v1/{division}/generaljournalentry/GeneralJournalEntryLines 	GET, POST 	This endpoint has a webhook 	Financial accounting
+HRM 	AbsenceRegistrations 	/api/v1/{division}/hrm/AbsenceRegistrations 	GET 		Hrm employees
+HRM 	AbsenceRegistrationTransactions 	/api/v1/{division}/hrm/AbsenceRegistrationTransactions 	GET 		Hrm employees
+HRM 	Costcenters 	/api/v1/{division}/hrm/Costcenters 	GET, POST, PUT, DELETE 		Financial costcenters
+HRM 	Costunits 	/api/v1/{division}/hrm/Costunits 	GET, POST, PUT, DELETE 		Financial costcenters
+HRM 	Departments 	/api/v1/{division}/hrm/Departments 	GET 		Hrm employees
+HRM 	DivisionClasses 	/api/v1/{division}/hrm/DivisionClasses 	GET 		Organization administration
+HRM 	DivisionClassNames 	/api/v1/{division}/hrm/DivisionClassNames 	GET 		Organization administration
+HRM 	DivisionClassValues 	/api/v1/{division}/hrm/DivisionClassValues 	GET 		Organization administration
+HRM 	Divisions 	/api/v1/{division}/hrm/Divisions 	GET 		-
+HRM 	JobGroups 	/api/v1/{division}/hrm/JobGroups 	GET 		Hrm employees
+HRM 	JobTitles 	/api/v1/{division}/hrm/JobTitles 	GET 		Hrm employees
+HRM 	LeaveAbsenceHoursByDay 	/api/v1/{division}/hrm/LeaveAbsenceHoursByDay 	GET 		Hrm employees
+HRM 	LeaveBuildUpRegistrations 	/api/v1/{division}/hrm/LeaveBuildUpRegistrations 	GET 		Hrm employees
+HRM 	LeaveRegistrations 	/api/v1/{division}/hrm/LeaveRegistrations 	GET 		Hrm employees
+HRM 	Schedules 	/api/v1/{division}/hrm/Schedules 	GET 		Hrm employees
+Inventory 	AssemblyBillOfMaterialHeader 	/api/v1/{division}/inventory/AssemblyBillOfMaterialHeader 	GET, POST, PUT, DELETE 		Manufacturing production
+Inventory 	AssemblyBillOfMaterialMaterials 	/api/v1/{division}/inventory/AssemblyBillOfMaterialMaterials 	GET, POST, PUT, DELETE 		Manufacturing production
+Inventory 	AssemblyOrders 	/api/v1/{division}/inventory/AssemblyOrders 	GET 		Manufacturing production
+Inventory 	BatchNumbers 	/api/v1/{division}/inventory/BatchNumbers 	GET 		Logistics items
+Inventory 	FinishAssemblyOrder 	/api/v1/{division}/inventory/FinishAssemblyOrder 	POST 		Logistics inventory
+Inventory 	ItemWarehousePlanningDetails 	/api/v1/{division}/inventory/ItemWarehousePlanningDetails 	GET 		Logistics inventory
+Inventory 	ItemWarehouses 	/api/v1/{division}/inventory/ItemWarehouses 	GET, POST, PUT, DELETE 		Logistics inventory
+Inventory 	ItemWarehouseStorageLocations 	/api/v1/{division}/inventory/ItemWarehouseStorageLocations 	GET 		Logistics inventory
+Inventory 	ProcessStockCount 	/api/v1/{division}/inventory/ProcessStockCount 	POST 		Logistics inventory
+Inventory 	ProcessWarehouseTransfer 	/api/v1/{division}/inventory/ProcessWarehouseTransfer 	POST 		Logistics inventory
+Inventory 	SerialNumbers 	/api/v1/{division}/inventory/SerialNumbers 	GET 		Logistics items
+Inventory 	StockBatchNumbers 	/api/v1/{division}/inventory/StockBatchNumbers 	GET, POST, PUT, DELETE 		Logistics inventory, sales orders, purchase orders
+Inventory 	StockCountLines 	/api/v1/{division}/inventory/StockCountLines 	GET, POST, PUT, DELETE 		Logistics inventory
+Inventory 	StockCounts 	/api/v1/{division}/inventory/StockCounts 	GET, POST, PUT, DELETE 		Logistics inventory
+Inventory 	StockSerialNumbers 	/api/v1/{division}/inventory/StockSerialNumbers 	GET, POST, PUT, DELETE 		Logistics inventory, sales orders, purchase orders
+Inventory 	StorageLocations 	/api/v1/{division}/inventory/StorageLocations 	GET 		Logistics inventory
+Inventory 	Warehouses 	/api/v1/{division}/inventory/Warehouses 	GET, POST, PUT, DELETE 		Logistics inventory
+Inventory 	WarehouseTransferLines 	/api/v1/{division}/inventory/WarehouseTransferLines 	GET, POST, PUT, DELETE 		Logistics inventory
+Inventory 	WarehouseTransfers 	/api/v1/{division}/inventory/WarehouseTransfers 	GET, POST, PUT, DELETE 		Logistics inventory
+Logistics 	AccountItems 	AccountItems - Function Details 	GET 		Logistics items
+Logistics 	CustomerItems 	/api/v1/{division}/logistics/CustomerItems 	GET, POST, PUT, DELETE 		Logistics items
+Logistics 	Incoterms 	/api/v1/{division}/logistics/Incoterms 	GET 		Crm quotes, sales orders, sales invoices, purchase orders
+Logistics 	ItemAssortment 	/api/v1/{division}/logistics/ItemAssortment 	GET 		Logistics items
+Logistics 	ItemAssortmentProperty 	/api/v1/{division}/logistics/ItemAssortmentProperty 	GET 		Logistics items
+Logistics 	ItemChargeRelation 	/api/v1/{division}/logistics/ItemChargeRelation 	GET 		Logistics items
+Logistics 	ItemDetailsByID 	ItemDetailsByID - Function Details 	GET 		Logistics items
+Logistics 	ItemExtraField 	ItemExtraField - Function Details 	GET 		Logistics items
+Logistics 	ItemGroups 	/api/v1/{division}/logistics/ItemGroups 	GET 		Logistics items
+Logistics 	Items 	/api/v1/{division}/logistics/Items 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Logistics items
+Logistics 	ItemVersions 	/api/v1/{division}/logistics/ItemVersions 	GET 		Logistics items
+Logistics 	ReasonCodes 	/api/v1/{division}/logistics/ReasonCodes 	GET 		Logistics items
+Logistics 	ReasonCodesLinkTypes 	/api/v1/{division}/logistics/ReasonCodesLinkTypes 	GET 		Logistics items
+Logistics 	SalesItemPrice 	SalesItemPrice - Function Details 	GET 		Sales prices
+Logistics 	SalesItemPrices 	/api/v1/{division}/logistics/SalesItemPrices 	GET, POST, PUT, DELETE 		Sales prices
+Logistics 	SelectionCodes 	/api/v1/{division}/logistics/SelectionCodes 	GET 		Sales orders
+Logistics 	StockPosition 	StockPosition - Function Details 	GET 	This endpoint has a webhook 	Logistics inventory
+Logistics 	SupplierItem 	/api/v1/{division}/logistics/SupplierItem 	GET, POST, PUT, DELETE 		Logistics items
+Logistics 	Units 	/api/v1/{division}/logistics/Units 	GET 		Logistics items
+Mailbox 	DefaultMailbox 	/api/v1/{division}/read/mailbox/DefaultMailbox 	GET 		Communication mailboxes
+Mailbox 	Mailboxes 	/api/v1/{division}/mailbox/Mailboxes 	GET, POST, PUT, DELETE 		Communication mailboxes
+Mailbox 	MailMessageAttachments 	/api/v1/{division}/mailbox/MailMessageAttachments 	GET, POST 	This endpoint has a webhook 	Communication mailboxes
+Mailbox 	MailMessagesSent 	/api/v1/{division}/mailbox/MailMessagesSent 	GET, POST 	This endpoint has a webhook 	Communication mailboxes
+Mailbox 	PreferredMailbox 	/api/v1/{division}/read/mailbox/PreferredMailbox 	GET 		Communication mailboxes
+Mailbox 	PreferredMailboxForOperation 	PreferredMailboxForOperation - Function Details 	GET 		Communication mailboxes
+Manufacturing 	BillOfMaterialMaterials 	/api/v1/{division}/manufacturing/BillOfMaterialMaterials 	GET, POST, PUT, DELETE 		Manufacturing production
+Manufacturing 	BillOfMaterialRoutings 	/api/v1/{division}/manufacturing/BillOfMaterialRoutings 	GET, POST, PUT, DELETE 		Manufacturing production
+Manufacturing 	BillOfMaterialVersions 	/api/v1/{division}/manufacturing/BillOfMaterialVersions 	GET, POST, PUT, DELETE 		Manufacturing production
+Manufacturing 	ByProductReceipts 	/api/v1/{division}/manufacturing/ByProductReceipts 	GET, POST 		Manufacturing production
+Manufacturing 	ByProductReversals 	/api/v1/{division}/manufacturing/ByProductReversals 	GET, POST 		Manufacturing production
+Manufacturing 	ManufacturingSettings 	/api/v1/{division}/manufacturing/ManufacturingSettings 	GET 		Manufacturing production
+Manufacturing 	MaterialIssues 	/api/v1/{division}/manufacturing/MaterialIssues 	GET, POST 		Manufacturing production
+Manufacturing 	MaterialReversals 	/api/v1/{division}/manufacturing/MaterialReversals 	GET, POST 		Manufacturing production
+Manufacturing 	OperationResources 	/api/v1/{division}/manufacturing/OperationResources 	GET, POST, PUT, DELETE 		Manufacturing production
+Manufacturing 	Operations 	/api/v1/{division}/manufacturing/Operations 	GET, POST, PUT, DELETE 		Manufacturing production
+Manufacturing 	ProductionAreas 	/api/v1/{division}/manufacturing/ProductionAreas 	GET, POST, PUT, DELETE 		Manufacturing production
+Manufacturing 	RecentTimeTransactions 	/api/v1/{division}/read/manufacturing/RecentTimeTransactions 	GET 		Manufacturing production
+Manufacturing 	ShopOrderMaterialPlanDetails 	/api/v1/{division}/manufacturing/ShopOrderMaterialPlanDetails 	GET 		Manufacturing shopfloor
+Manufacturing 	ShopOrderMaterialPlans 	/api/v1/{division}/manufacturing/ShopOrderMaterialPlans 	GET, POST, PUT, DELETE 		Manufacturing shopfloor
+Manufacturing 	ShopOrderPriorities 	/api/v1/{division}/manufacturing/ShopOrderPriorities 	GET, PUT 		Manufacturing shopfloor
+Manufacturing 	ShopOrderReceipts 	/api/v1/{division}/manufacturing/ShopOrderReceipts 	GET, POST 		Manufacturing shopfloor
+Manufacturing 	ShopOrderReversals 	/api/v1/{division}/manufacturing/ShopOrderReversals 	GET, POST 		Manufacturing shopfloor
+Manufacturing 	ShopOrderRoutingStepPlans 	/api/v1/{division}/manufacturing/ShopOrderRoutingStepPlans 	GET, POST, PUT, DELETE 		Manufacturing shopfloor
+Manufacturing 	ShopOrderRoutingStepPlansAvailableToWork 	/api/v1/{division}/read/manufacturing/ShopOrderRoutingStepPlansAvailableToWork 	GET 		Manufacturing production
+Manufacturing 	ShopOrders 	/api/v1/{division}/manufacturing/ShopOrders 	GET, POST, PUT, DELETE 		Manufacturing shopfloor
+Manufacturing 	StageForDeliveryReceipts 	/api/v1/{division}/manufacturing/StageForDeliveryReceipts 	GET, POST 		Manufacturing production
+Manufacturing 	StageForDeliveryReversals 	/api/v1/{division}/manufacturing/StageForDeliveryReversals 	GET, POST 		Manufacturing production
+Manufacturing 	StartedTimedTimeTransactions 	/api/v1/{division}/read/manufacturing/StartedTimedTimeTransactions 	GET 		Manufacturing production
+Manufacturing 	SubOrderReceipts 	/api/v1/{division}/manufacturing/SubOrderReceipts 	GET, POST 		Manufacturing production
+Manufacturing 	SubOrderReversals 	/api/v1/{division}/manufacturing/SubOrderReversals 	GET, POST 		Manufacturing production
+Manufacturing 	TimedTimeTransactions 	/api/v1/{division}/manufacturing/TimedTimeTransactions 	GET, POST, PUT, DELETE 		Manufacturing shopfloor
+Manufacturing 	TimeTransactions 	/api/v1/{division}/manufacturing/TimeTransactions 	GET, POST, PUT, DELETE 		Manufacturing shopfloor
+Manufacturing 	Workcenters 	/api/v1/{division}/manufacturing/Workcenters 	GET, POST, PUT, DELETE 		Manufacturing shopfloor
+OpeningBalance 	CurrentYear/AfterEntry 	/api/v1/{division}/openingbalance/CurrentYear/AfterEntry 	GET 		Financial accounting
+OpeningBalance 	CurrentYear/Processed 	/api/v1/{division}/openingbalance/CurrentYear/Processed 	GET 		Financial accounting
+OpeningBalance 	PreviousYear/AfterEntry 	/api/v1/{division}/openingbalance/PreviousYear/AfterEntry 	GET 		Financial accounting
+OpeningBalance 	PreviousYear/Processed 	/api/v1/{division}/openingbalance/PreviousYear/Processed 	GET 		Financial accounting
+Payroll 	ActiveEmployments 	/api/v1/{division}/payroll/ActiveEmployments 	GET 		Hrm payroll
+Payroll 	Employees 	/api/v1/{division}/payroll/Employees 	GET 		Hrm payroll
+Payroll 	EmploymentConditionGroups 	/api/v1/beta/{division}/payroll/EmploymentConditionGroups 	GET 		Hrm payroll
+Payroll 	EmploymentContractFlexPhases 	/api/v1/{division}/payroll/EmploymentContractFlexPhases 	GET 		Hrm payroll
+Payroll 	EmploymentContractFlexPhasesOnFocusDate 	EmploymentContractFlexPhasesOnFocusDate - Function Details 	GET 		Hrm payroll
+Payroll 	EmploymentContracts 	/api/v1/{division}/payroll/EmploymentContracts 	GET 		Hrm payroll
+Payroll 	EmploymentEndReasons 	/api/v1/{division}/payroll/EmploymentEndReasons 	GET 		Hrm payroll
+Payroll 	EmploymentEndReasonsOnFocusDate 	EmploymentEndReasonsOnFocusDate - Function Details 	GET 		Hrm payroll
+Payroll 	EmploymentOrganizations 	/api/v1/{division}/payroll/EmploymentOrganizations 	GET 		Hrm payroll
+Payroll 	Employments 	/api/v1/{division}/payroll/Employments 	GET 		Hrm payroll
+Payroll 	EmploymentSalaries 	/api/v1/{division}/payroll/EmploymentSalaries 	GET 		Hrm payroll
+Payroll 	EmploymentTaxAuthoritiesGeneral 	/api/v1/{division}/payroll/EmploymentTaxAuthoritiesGeneral 	GET 		Hrm payroll
+Payroll 	PayrollComponents 	PayrollComponents - Function Details 	GET 		Hrm payroll
+Payroll 	PayrollTransactionsByPayrollYear 	PayrollTransactionsByPayrollYear - Function Details 	GET 		Hrm payroll
+Payroll 	TaxEmploymentEndFlexCodes 	/api/v1/{division}/payroll/TaxEmploymentEndFlexCodes 	GET 		Hrm payroll
+Payroll 	VariableMutations 	/api/v1/{division}/payroll/VariableMutations 	GET, POST, PUT 		Hrm payroll
+Project 	CostEntryExpensesByProject 	CostEntryExpensesByProject - Function Details 	GET 		Projects projects
+Project 	CostEntryRecentAccounts 	CostEntryRecentAccounts - Function Details 	GET 		Projects projects
+Project 	CostEntryRecentAccountsByProject 	CostEntryRecentAccountsByProject - Function Details 	GET 		Projects projects
+Project 	CostEntryRecentCostTypes 	CostEntryRecentCostTypes - Function Details 	GET 		Projects projects
+Project 	CostEntryRecentCostTypesByProject 	CostEntryRecentCostTypesByProject - Function Details 	GET 		Projects projects
+Project 	CostEntryRecentExpensesByProject 	CostEntryRecentExpensesByProject - Function Details 	GET 		Projects projects
+Project 	CostEntryRecentProjects 	CostEntryRecentProjects - Function Details 	GET 		Projects projects
+Project 	CostsByDate 	CostsByDate - Function Details 	GET 		Projects projects
+Project 	CostsById 	CostsById - Function Details 	GET 		Projects projects
+Project 	CostTransactions 	/api/v1/{division}/project/CostTransactions 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Projects projects
+Project 	CostTypes 	CostTypes - Function Details 	GET 		Projects projects
+Project 	CostTypesByDate 	CostTypesByDate - Function Details 	GET 		Projects projects
+Project 	CostTypesByProjectAndDate 	CostTypesByProjectAndDate - Function Details 	GET 		Projects projects
+Project 	EmployeeRestrictionItems 	/api/v1/{division}/project/EmployeeRestrictionItems 	GET, POST, PUT, DELETE 		Projects projects
+Project 	EmploymentInternalRates 	/api/v1/{division}/project/EmploymentInternalRates 	GET 		Projects billing
+Project 	HourCostTypes 	/api/v1/{division}/read/project/HourCostTypes 	GET 		Projects billing
+Project 	HourEntryActivitiesByProject 	HourEntryActivitiesByProject - Function Details 	GET 		Projects billing
+Project 	HourEntryRecentAccounts 	HourEntryRecentAccounts - Function Details 	GET 		Projects billing
+Project 	HourEntryRecentAccountsByProject 	HourEntryRecentAccountsByProject - Function Details 	GET 		Projects billing
+Project 	HourEntryRecentActivitiesByProject 	HourEntryRecentActivitiesByProject - Function Details 	GET 		Projects projects
+Project 	HourEntryRecentHourTypes 	HourEntryRecentHourTypes - Function Details 	GET 		Projects billing
+Project 	HourEntryRecentHourTypesByProject 	HourEntryRecentHourTypesByProject - Function Details 	GET 		Projects billing
+Project 	HourEntryRecentProjects 	HourEntryRecentProjects - Function Details 	GET 		Projects billing
+Project 	HoursByDate 	HoursByDate - Function Details 	GET 		Projects billing
+Project 	HoursById 	HoursById - Function Details 	GET 		Projects billing
+Project 	HourTypes 	HourTypes - Function Details 	GET 		Projects billing
+Project 	HourTypesByDate 	HourTypesByDate - Function Details 	GET 		Projects billing
+Project 	HourTypesByProjectAndDate 	HourTypesByProjectAndDate - Function Details 	GET 		Projects billing
+Project 	InvoiceTerms 	/api/v1/{division}/project/InvoiceTerms 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectAccountMutations 	/api/v1/{division}/project/ProjectAccountMutations 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectBudgetTypes 	/api/v1/{division}/project/ProjectBudgetTypes 	GET 		Projects projects
+Project 	ProjectClassifications 	/api/v1/{division}/project/ProjectClassifications 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectHourBudgets 	/api/v1/{division}/project/ProjectHourBudgets 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectPlanning 	/api/v1/{division}/project/ProjectPlanning 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Projects projects
+Project 	ProjectPlanningRecurring 	/api/v1/{division}/project/ProjectPlanningRecurring 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectRestrictionEmployeeItems 	/api/v1/{division}/project/ProjectRestrictionEmployeeItems 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectRestrictionEmployees 	/api/v1/{division}/project/ProjectRestrictionEmployees 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectRestrictionItems 	/api/v1/{division}/project/ProjectRestrictionItems 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectRestrictionRebillings 	/api/v1/{division}/project/ProjectRestrictionRebillings 	GET, POST, PUT, DELETE 		Projects billing
+Project 	Projects 	/api/v1/{division}/project/Projects 	GET, POST, PUT, DELETE 		Projects projects
+Project 	ProjectWBSByProject 	ProjectWBSByProject - Function Details 	GET 		Projects projects
+Project 	ProjectWBSByProjectAndWBS 	ProjectWBSByProjectAndWBS - Function Details 	GET 		Projects projects
+Project 	RecentCosts 	/api/v1/{division}/read/project/RecentCosts 	GET 		Projects projects
+Project 	RecentCostsByNumberOfWeeks 	RecentCostsByNumberOfWeeks - Function Details 	GET 		Projects billing
+Project 	RecentCostsByNumberOfWeeksByDate 	RecentCostsByNumberOfWeeksByDate - Function Details 	GET 		Projects billing
+Project 	RecentHours 	/api/v1/{division}/read/project/RecentHours 	GET 		Projects billing
+Project 	RecentHoursByNumberOfWeeks 	RecentHoursByNumberOfWeeks - Function Details 	GET 		Projects billing
+Project 	RecentHoursByNumberOfWeeksByDate 	RecentHoursByNumberOfWeeksByDate - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingAccountDetails 	/api/v1/{division}/read/project/TimeAndBillingAccountDetails 	GET 		Projects billing
+Project 	TimeAndBillingAccountDetailsByID 	TimeAndBillingAccountDetailsByID - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingActivitiesAndExpenses 	/api/v1/{division}/read/project/TimeAndBillingActivitiesAndExpenses 	GET 		Projects billing
+Project 	TimeAndBillingEntryAccounts 	/api/v1/{division}/read/project/TimeAndBillingEntryAccounts 	GET 		Projects billing
+Project 	TimeAndBillingEntryAccountsByDate 	TimeAndBillingEntryAccountsByDate - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingEntryAccountsByProjectAndDate 	TimeAndBillingEntryAccountsByProjectAndDate - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingEntryProjects 	/api/v1/{division}/read/project/TimeAndBillingEntryProjects 	GET 		Projects billing
+Project 	TimeAndBillingEntryProjectsByAccountAndDate 	TimeAndBillingEntryProjectsByAccountAndDate - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingEntryProjectsByDate 	TimeAndBillingEntryProjectsByDate - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingEntryRecentAccounts 	/api/v1/{division}/read/project/TimeAndBillingEntryRecentAccounts 	GET 		Projects billing
+Project 	TimeAndBillingEntryRecentActivitiesAndExpenses 	/api/v1/{division}/read/project/TimeAndBillingEntryRecentActivitiesAndExpenses 	GET 		Projects billing
+Project 	TimeAndBillingEntryRecentHourCostTypes 	/api/v1/{division}/read/project/TimeAndBillingEntryRecentHourCostTypes 	GET 		Projects billing
+Project 	TimeAndBillingEntryRecentProjects 	/api/v1/{division}/read/project/TimeAndBillingEntryRecentProjects 	GET 		Projects billing
+Project 	TimeAndBillingItemDetails 	/api/v1/{division}/read/project/TimeAndBillingItemDetails 	GET 		Projects billing
+Project 	TimeAndBillingItemDetailsByID 	TimeAndBillingItemDetailsByID - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingProjectDetails 	/api/v1/{division}/read/project/TimeAndBillingProjectDetails 	GET 		Projects billing
+Project 	TimeAndBillingProjectDetailsByID 	TimeAndBillingProjectDetailsByID - Function Details 	GET 		Projects billing
+Project 	TimeAndBillingRecentProjects 	TimeAndBillingRecentProjects - Function Details 	GET 		Projects billing
+Project 	TimeCorrections 	/api/v1/{division}/project/TimeCorrections 	GET, POST, PUT, DELETE 		Projects billing
+Project 	TimeTransactions 	/api/v1/{division}/project/TimeTransactions 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Projects billing
+Project 	WBSActivities 	/api/v1/{division}/project/WBSActivities 	GET, POST, PUT, DELETE 		Projects projects
+Project 	WBSDeliverables 	/api/v1/{division}/project/WBSDeliverables 	GET, POST, PUT, DELETE 		Projects projects
+Project 	WBSExpenses 	/api/v1/{division}/project/WBSExpenses 	GET, POST, PUT, DELETE 		Projects projects
+Purchase 	PurchaseInvoiceLines 	/api/v1/{division}/purchase/PurchaseInvoiceLines 	GET, POST 		Purchase invoices
+Purchase 	PurchaseInvoices 	/api/v1/{division}/purchase/PurchaseInvoices 	GET, POST, PUT, DELETE 		Purchase invoices
+PurchaseEntry 	PurchaseEntries 	/api/v1/{division}/purchaseentry/PurchaseEntries 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Financial accounting
+PurchaseEntry 	PurchaseEntryLines 	/api/v1/{division}/purchaseentry/PurchaseEntryLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Financial accounting
+PurchaseOrder 	GoodsReceiptLines 	/api/v1/{division}/purchaseorder/GoodsReceiptLines 	GET, POST 		Logistics wms
+PurchaseOrder 	GoodsReceipts 	/api/v1/{division}/purchaseorder/GoodsReceipts 	GET, POST, PUT 		Logistics wms
+PurchaseOrder 	PurchaseOrderLines 	/api/v1/{division}/purchaseorder/PurchaseOrderLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Purchase orders
+PurchaseOrder 	PurchaseOrders 	/api/v1/{division}/purchaseorder/PurchaseOrders 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Purchase orders
+PurchaseOrder 	PurchaseReturnLines 	/api/v1/{division}/purchaseorder/PurchaseReturnLines 	GET, POST, PUT 		Logistics wms
+PurchaseOrder 	PurchaseReturns 	/api/v1/{division}/purchaseorder/PurchaseReturns 	GET, POST, PUT 		Logistics wms
+Sales 	OrderCharges 	/api/v1/{division}/sales/OrderCharges 	GET 		Sales orders
+Sales 	SalesChannels 	/api/v1/{division}/sales/SalesChannels 	GET, POST, PUT, DELETE 		Crm quotes, sales orders, sales invoices
+Sales 	SalesPriceListLinkedAccounts 	/api/v1/{division}/sales/SalesPriceListLinkedAccounts 	GET 		Sales prices
+Sales 	SalesPriceListPeriods 	/api/v1/{division}/sales/SalesPriceListPeriods 	GET 		Sales prices
+Sales 	SalesPriceLists 	/api/v1/{division}/sales/SalesPriceLists 	GET 		Sales prices
+Sales 	SalesPriceListVolumeDiscounts 	/api/v1/{division}/sales/SalesPriceListVolumeDiscounts 	GET 		Sales prices
+Sales 	ShippingMethods 	/api/v1/{division}/sales/ShippingMethods 	GET 		Sales orders
+SalesEntry 	SalesEntries 	/api/v1/{division}/salesentry/SalesEntries 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Financial accounting
+SalesEntry 	SalesEntryLines 	/api/v1/{division}/salesentry/SalesEntryLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Financial accounting
+SalesInvoice 	InvoiceSalesOrders 	/api/v1/{division}/salesinvoice/InvoiceSalesOrders 	POST 		Sales orders
+SalesInvoice 	Layouts 	/api/v1/{division}/salesinvoice/Layouts 	GET 		Sales invoices
+SalesInvoice 	PrintedSalesInvoices 	/api/v1/{division}/salesinvoice/PrintedSalesInvoices 	POST 		Sales invoices
+SalesInvoice 	SalesInvoiceLines 	/api/v1/{division}/salesinvoice/SalesInvoiceLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Sales invoices
+SalesInvoice 	SalesInvoiceOrderChargeLines 	/api/v1/{division}/salesinvoice/SalesInvoiceOrderChargeLines 	GET, POST, PUT, DELETE 		Sales invoices
+SalesInvoice 	SalesInvoices 	/api/v1/{division}/salesinvoice/SalesInvoices 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Sales invoices
+SalesInvoice 	SalesOrderID 	/api/v1/{division}/salesinvoice/SalesOrderID 	POST 		Sales orders
+SalesOrder 	CompleteSalesOrder 	/api/v1/{division}/salesorder/CompleteSalesOrder 	POST 		Sales orders
+SalesOrder 	CompleteSalesOrderLine 	/api/v1/{division}/salesorder/CompleteSalesOrderLine 	POST 		Sales orders
+SalesOrder 	DropShipmentLines 	/api/v1/{division}/salesorder/DropShipmentLines 	GET, POST, PUT 		Logistics wms
+SalesOrder 	DropShipments 	/api/v1/{division}/salesorder/DropShipments 	GET, POST, PUT 		Logistics wms
+SalesOrder 	GoodsDeliveries 	/api/v1/{division}/salesorder/GoodsDeliveries 	GET, POST, PUT 	This endpoint has a webhook 	Logistics wms
+SalesOrder 	GoodsDeliveryLines 	/api/v1/{division}/salesorder/GoodsDeliveryLines 	GET, POST, PUT 	This endpoint has a webhook 	Logistics wms
+SalesOrder 	PlannedSalesReturnLines 	/api/v1/{division}/salesorder/PlannedSalesReturnLines 	GET, POST, PUT, DELETE 		Sales orders
+SalesOrder 	PlannedSalesReturns 	/api/v1/{division}/salesorder/PlannedSalesReturns 	GET, POST, PUT, DELETE 		Sales orders
+SalesOrder 	PrintedSalesOrders 	/api/v1/{division}/salesorder/PrintedSalesOrders 	POST 		Sales orders
+SalesOrder 	SalesOrderLines 	/api/v1/{division}/salesorder/SalesOrderLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Sales orders
+SalesOrder 	SalesOrderOrderChargeLines 	/api/v1/{division}/salesorder/SalesOrderOrderChargeLines 	GET, POST, PUT, DELETE 		Sales orders
+SalesOrder 	SalesOrders 	/api/v1/{division}/salesorder/SalesOrders 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Sales orders
+Subscription 	SubscriptionLines 	/api/v1/{division}/subscription/SubscriptionLines 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Sales contracts
+Subscription 	SubscriptionLineTypes 	/api/v1/{division}/subscription/SubscriptionLineTypes 	GET 		Sales contracts
+Subscription 	SubscriptionReasonCodes 	/api/v1/{division}/subscription/SubscriptionReasonCodes 	GET 		Sales contracts
+Subscription 	SubscriptionRestrictionEmployees 	/api/v1/{division}/subscription/SubscriptionRestrictionEmployees 	GET, POST, DELETE 		Sales contracts
+Subscription 	SubscriptionRestrictionItems 	/api/v1/{division}/subscription/SubscriptionRestrictionItems 	GET, POST, DELETE 		Sales contracts
+Subscription 	Subscriptions 	/api/v1/{division}/subscription/Subscriptions 	GET, POST, PUT, DELETE 	This endpoint has a webhook 	Sales contracts
+Subscription 	SubscriptionTypes 	/api/v1/{division}/subscription/SubscriptionTypes 	GET 		Sales contracts
+Sync 	Cashflow/PaymentTerms 	/api/v1/{division}/sync/Cashflow/PaymentTerms 	GET 		Financial cashflow
+Sync 	CRM/Accounts 	/api/v1/{division}/sync/CRM/Accounts 	GET 		Crm accounts
+Sync 	CRM/Addresses 	/api/v1/{division}/sync/CRM/Addresses 	GET 		Crm accounts
+Sync 	CRM/Contacts 	/api/v1/{division}/sync/CRM/Contacts 	GET 		Crm accounts
+Sync 	CRM/QuotationHeaders 	/api/v1/{division}/sync/CRM/QuotationHeaders 	GET 		Crm quotes
+Sync 	CRM/QuotationLines 	/api/v1/{division}/sync/CRM/QuotationLines 	GET 		Crm quotes
+Sync 	Deleted 	/api/v1/{division}/sync/Deleted 	GET 		Organization administration
+Sync 	Documents/DocumentAttachments 	/api/v1/{division}/sync/Documents/DocumentAttachments 	GET 		Organization documents
+Sync 	Documents/Documents 	/api/v1/{division}/sync/Documents/Documents 	GET 		Organization documents
+Sync 	Financial/GLAccounts 	/api/v1/{division}/sync/Financial/GLAccounts 	GET 		Financial generalledgers
+Sync 	Financial/GLClassifications 	/api/v1/{division}/sync/Financial/GLClassifications 	GET 		Financial generalledgers
+Sync 	Financial/TransactionLines 	/api/v1/{division}/sync/Financial/TransactionLines 	GET 		Financial accounting
+Sync 	HRM/LeaveAbsenceHoursByDay 	/api/v1/{division}/sync/HRM/LeaveAbsenceHoursByDay 	GET 		Hrm employees
+Sync 	HRM/ScheduleEntries 	/api/v1/{division}/sync/HRM/ScheduleEntries 	GET 		Hrm employees
+Sync 	HRM/Schedules 	/api/v1/{division}/sync/HRM/Schedules 	GET 		Hrm employees
+Sync 	Inventory/ItemStorageLocations 	/api/v1/{division}/sync/Inventory/ItemStorageLocations 	GET 		Logistics inventory
+Sync 	Inventory/ItemWarehouses 	/api/v1/{division}/sync/Inventory/ItemWarehouses 	GET 		Logistics inventory
+Sync 	Inventory/SerialBatchNumbers 	/api/v1/{division}/sync/Inventory/SerialBatchNumbers 	GET 		Logistics items
+Sync 	Inventory/StockPositions 	/api/v1/{division}/sync/Inventory/StockPositions 	GET 		Logistics inventory
+Sync 	Inventory/StockSerialBatchNumbers 	/api/v1/{division}/sync/Inventory/StockSerialBatchNumbers 	GET 		Logistics inventory, sales orders, purchase orders
+Sync 	Inventory/StorageLocationStockPositions 	/api/v1/{division}/sync/Inventory/StorageLocationStockPositions 	GET 		Logistics inventory
+Sync 	Logistics/Items 	/api/v1/{division}/sync/Logistics/Items 	GET 		Logistics items
+Sync 	Logistics/PurchaseItemPrices 	/api/v1/{division}/sync/Logistics/PurchaseItemPrices 	GET 		Purchase prices
+Sync 	Logistics/SalesItemPrices 	/api/v1/{division}/sync/Logistics/SalesItemPrices 	GET 		Sales prices
+Sync 	Logistics/SupplierItem 	/api/v1/{division}/sync/Logistics/SupplierItem 	GET 		Logistics items
+Sync 	Manufacturing/BillOfMaterialMaterials 	/api/v1/{division}/sync/Manufacturing/BillOfMaterialMaterials 	GET 		Manufacturing production
+Sync 	Manufacturing/BillOfMaterialVersions 	/api/v1/{division}/sync/Manufacturing/BillOfMaterialVersions 	GET 		Manufacturing production
+Sync 	Manufacturing/MaterialIssues 	/api/v1/{division}/sync/Manufacturing/MaterialIssues 	GET 		Manufacturing production
+Sync 	Manufacturing/ShopOrderMaterialPlans 	/api/v1/{division}/sync/Manufacturing/ShopOrderMaterialPlans 	GET 		Manufacturing shopfloor
+Sync 	Manufacturing/ShopOrderPurchasePlanning 	/api/v1/{division}/sync/Manufacturing/ShopOrderPurchasePlanning 	GET 		Manufacturing shopfloor
+Sync 	Manufacturing/ShopOrderRoutingStepPlans 	/api/v1/{division}/sync/Manufacturing/ShopOrderRoutingStepPlans 	GET 		Manufacturing shopfloor
+Sync 	Manufacturing/ShopOrders 	/api/v1/{division}/sync/Manufacturing/ShopOrders 	GET 		Manufacturing shopfloor
+Sync 	Manufacturing/ShopOrderSubOrders 	/api/v1/{division}/sync/Manufacturing/ShopOrderSubOrders 	GET 		Manufacturing shopfloor
+Sync 	Payroll/BankAccounts 	/api/v1/{division}/sync/Payroll/BankAccounts 	GET 		Hrm payroll
+Sync 	Payroll/Employees 	/api/v1/{division}/sync/Payroll/Employees 	GET 		Hrm payroll
+Sync 	Payroll/EmploymentCLAs 	/api/v1/{division}/sync/Payroll/EmploymentCLAs 	GET 		Hrm payroll
+Sync 	Payroll/EmploymentContracts 	/api/v1/{division}/sync/Payroll/EmploymentContracts 	GET 		Hrm payroll
+Sync 	Payroll/EmploymentOrganizations 	/api/v1/{division}/sync/Payroll/EmploymentOrganizations 	GET 		Hrm payroll
+Sync 	Payroll/Employments 	/api/v1/{division}/sync/Payroll/Employments 	GET 		Hrm payroll
+Sync 	Payroll/EmploymentSalaries 	/api/v1/{division}/sync/Payroll/EmploymentSalaries 	GET 		Hrm payroll
+Sync 	Payroll/EmploymentTaxAuthoritiesGeneral 	/api/v1/{division}/sync/Payroll/EmploymentTaxAuthoritiesGeneral 	GET 		Hrm payroll
+Sync 	Project/ProjectPlanning 	/api/v1/{division}/sync/Project/ProjectPlanning 	GET 		Projects projects
+Sync 	Project/Projects 	/api/v1/{division}/sync/Project/Projects 	GET 		Projects projects
+Sync 	Project/ProjectWBS 	/api/v1/{division}/sync/Project/ProjectWBS 	GET 		Projects projects
+Sync 	Project/TimeCostTransactions 	/api/v1/{division}/sync/Project/TimeCostTransactions 	GET 		Projects billing
+Sync 	PurchaseOrder/PurchaseOrders 	/api/v1/{division}/sync/PurchaseOrder/PurchaseOrders 	GET 		Purchase orders
+Sync 	Sales/SalesPriceListVolumeDiscounts 	/api/v1/{division}/sync/Sales/SalesPriceListVolumeDiscounts 	GET 		Sales prices
+Sync 	SalesInvoice/SalesInvoices 	/api/v1/{division}/sync/SalesInvoice/SalesInvoices 	GET 		Sales invoices
+Sync 	SalesOrder/GoodsDeliveries 	/api/v1/{division}/sync/SalesOrder/GoodsDeliveries 	GET 		Logistics wms
+Sync 	SalesOrder/GoodsDeliveryLines 	/api/v1/{division}/sync/SalesOrder/GoodsDeliveryLines 	GET 		Logistics wms
+Sync 	SalesOrder/SalesOrderHeaders 	/api/v1/{division}/sync/SalesOrder/SalesOrderHeaders 	GET 		Sales orders
+Sync 	SalesOrder/SalesOrderLines 	/api/v1/{division}/sync/SalesOrder/SalesOrderLines 	GET 		Sales orders
+Sync 	Subscription/SubscriptionLines 	/api/v1/{division}/sync/Subscription/SubscriptionLines 	GET 		Sales contracts
+Sync 	Subscription/Subscriptions 	/api/v1/{division}/sync/Subscription/Subscriptions 	GET 		Sales contracts
+Sync 	Sync/SyncTimestamp 	Sync/SyncTimestamp - Function Details 	GET 		Organization administration
+System 	AccountantInfo 	/api/v1/{division}/system/AccountantInfo 	GET 		Organization administration
+System 	AllDivisions 	/api/v1/{division}/system/AllDivisions 	GET 		Organization administration
+System 	AvailableFeatures 	/api/v1/{division}/system/AvailableFeatures 	GET 		Organization administration
+System 	Divisions 	/api/v1/{division}/system/Divisions 	GET, DELETE 		Organization administration
+System 	GetMostRecentlyUsedDivisions 	/api/v1/{division}/system/GetMostRecentlyUsedDivisions 	GET 		Organization administration
+System 	Me 	/api/v1/current/Me 	GET 		-
+Users 	UserHasRights 	UserHasRights - Function Details 	GET 		Organization administration
+Users 	UserRoles 	/api/v1/{division}/users/UserRoles 	GET 		Organization administration
+Users 	UserRolesPerDivision 	/api/v1/{division}/users/UserRolesPerDivision 	GET 		Organization administration
+VAT 	VATCodes 	/api/v1/{division}/vat/VATCodes 	GET, POST, PUT, DELETE 		Financial accounting
+VAT 	VatPercentages 	/api/v1/{division}/vat/VatPercentages 	GET 		Financial accounting
+Webhooks 	WebhookSubscriptions 	/api/v1/{division}/webhooks/WebhookSubscriptions 	GET, POST, PUT, DELETE 		Organization administration
+Workflow 	RequestAttachments (BETA) 	/api/v1/beta/{division}/workflow/RequestAttachments 	GET 		Organization workflow

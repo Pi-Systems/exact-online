@@ -1,0 +1,22 @@
+<?php
+
+namespace PISystems\ExactOnline\Model;
+
+use Psr\EventDispatcher\StoppableEventInterface;
+
+class ExactEvent implements StoppableEventInterface
+{
+    /** @noinspection PhpGetterAndSetterCanBeReplacedWithPropertyHooksInspection No, it can't, it's part of the interface. */
+    private bool $propagationStopped = false;
+
+    public function stopPropagation() : self
+    {
+        $this->propagationStopped = true;
+        return $this;
+    }
+
+    public function isPropagationStopped(): bool
+    {
+        return $this->propagationStopped;
+    }
+}

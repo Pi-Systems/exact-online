@@ -1,0 +1,31 @@
+{
+  "type": "project",
+  "license": "proprietary",
+  "minimum-stability": "stable",
+  "prefer-stable": true,
+  "require": {
+    "php": ">=8.4",
+    "ext-dom": "*",
+    "ext-libxml": "*",
+    "ext-mbstring": "*",
+
+    "psr/http-factory": ">=1.1.0",
+    "psr/http-client": ">=1.0.3",
+    "psr/cache": "3.0.0",
+    "psr/log": "^3.0",,
+    "psr/event-dispatcher": "^1.0"
+  },
+  "config": {
+    "platform": {
+      "php": "8.4"
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "PISystems\\ExactOnline\\": "src/"
+    }
+  },
+  "require-dev": {
+    "guzzlehttp/guzzle": "^7.9"
+  }
+}

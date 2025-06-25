@@ -4,17 +4,18 @@ namespace PISystems\ExactOnline\Events;
 
 use PISystems\ExactOnline\Builder\Exact;
 
-/**
- * Disabling propagation will also stop the value from being overwritten.
- * Use with caution, this can lead to some serious trouble.
- */
 class AdministrationChange extends AbstractConfiguredExactEvent
 {
+
+    /**
+     * @param Exact $exact
+     * @param int|null $current
+     * @param int|null $new
+     */
     public function __construct(
         Exact $exact,
-        public readonly ?int $currentValue,
-        public ?int $newValue
-    )
+        public readonly ?int $current,
+        public readonly ?int $new)
     {
         parent::__construct($exact);
     }

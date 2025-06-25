@@ -2,23 +2,24 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
-use Psr\Http\Message\RequestInterface;
+use PISystems\ExactOnline\Enum\CredentialsType;
+use PISystems\ExactOnline\Model\ExactEvent;
+use PISystems\ExactOnline\Model\ExactRuntimeConfiguration;
 
 /**
  * Fired if no accessToken is available.
+ *
+ * Note: The actual value is not passed for security reasons.
+ * Only the ExactRuntimeConfiguration itself has access to this.
+ * The configuration has no accessors for this information.
  */
-class RefreshCredentials extends AbstractConfiguredExactEvent
+class RefreshCredentials extends ExactEvent
 {
-    public ?string $refreshToken = null;
-
     public function __construct(
-        Exact $exact,
-        public ?int $administration = null,
-        public RequestInterface $request
+        public readonly ExactRuntimeConfiguration $configuration,
+        public readonly CredentialsType           $type,
     )
     {
-        parent::__construct($exact);
     }
 
 }

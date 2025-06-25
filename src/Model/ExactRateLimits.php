@@ -1,0 +1,144 @@
+<?php
+
+namespace PISystems\ExactOnline\Model;
+
+use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exceptions\ExactResponseError;
+use Psr\Http\Message\RequestInterface;
+use Psr\Http\Message\ResponseInterface;
+
+class ExactRateLimits
+{
+    public \DateTimeImmutable $lastRefresh;
+    public \DateTimeImmutable $dailyResetTime;
+
+    public function __construct(
+        public readonly Exact  $exact,
+        public int    $dailyRateLimit,
+        public int             $dailyRemaining,
+        int|\DateTimeImmutable $dailyResetTime,
+        public int             $minuteRateLimit,
+        public int             $minuteRemaining,
+    )
+    {
+        $this->lastRefresh = new \DateTimeImmutable();
+
+        if (is_int($dailyResetTime)) {
+            $this->dailyResetTime = \DateTimeImmutable::createFromTimestamp($dailyResetTime);
+        }
+    }
+
+    public static function createFromLimits(
+        Exact $exact,
+        int   $dailyRateLimit,
+
+        int   $minuteRateLimit,
+        int   $dailyResetRate = 1000,
+    ): ExactRateLimits
+    {
+        return new self(
+            $exact,
+            $dailyRateLimit,
+            $dailyRateLimit,
+            $dailyResetRate,
+            $minuteRateLimit,
+            $minuteRateLimit,
+        );
+    }
+
+    public static function createFromResponse(
+        Exact $exact,
+        ResponseInterface $response
+    ): static
+    {
+        $new = self::createFromLimits($exact, 0, 0);
+        return $new->updateFromResponse($response);
+    }
+
+    public function updateFromResponse(
+        ResponseInterface $response,
+    ) : self
+    {
+        $required = [
+            'X-RateLimit-Limit' => 'dailyRateLimit',
+            'X-RateLimit-Remaining' => 'dailyRemaining',
+            'X-RateLimit-Reset' => 'dailyResetTime',
+            'X-RateLimit-Minutely-Limit' => 'minuteRateLimit',
+            'X-RateLimit-Minutely-Remaining' => 'minuteRemaining',
+            'X-RateLimit-Minutely-Reset' => 'minuteResetTime',
+        ];
+
+        foreach ($required as $header => $property) {
+            $val = $response->getHeaderLine($header);
+
+            if(empty($val)) {
+                continue;
+            }
+            $this->{$property} = (int)$val;
+        }
+
+        return $this;
+    }
+
+    protected function doRefreshCalculations(): void
+    {
+        if ($this->lastRefresh->getTimestamp() > $this->dailyResetTime->getTimestamp()) {
+            // Reset daily
+            $this->dailyRemaining = $this->dailyRateLimit;
+            $this->dailyResetTime = $this->dailyResetTime->add(new \DateInterval('P1D'));
+        }
+
+        $now = new \DateTimeImmutable();
+        if (($this->lastRefresh->getTimestamp()+60) >= $now->getTimestamp()) {
+            $this->minuteRemaining = $this->minuteRateLimit;
+            $this->lastRefresh = $now;
+        }
+    }
+
+    public function isRateLimited(): bool
+    {
+        return $this->dailyRemaining <= 0 || $this->minuteRemaining <= 0;
+    }
+
+    public function isDailyLimited(): bool
+    {
+        return $this->dailyRemaining <= 0;
+    }
+
+    public function isMinutelyLimited(): bool
+    {
+        return $this->minuteRemaining <= 0;
+    }
+
+    public function getDailyRemaining() : int
+    {
+        $this->doRefreshCalculations();
+        return $this->dailyRemaining;
+    }
+
+    public function getRemainingMinutely() : int
+    {
+        $this->doRefreshCalculations();
+        return $this->minuteRemaining;
+    }
+
+    /**
+     * @return array{dailyRemaining: int, minutelyRemaining: int}
+     */
+    public function consume(): array
+    {
+        $this->doRefreshCalculations();
+
+        if ($this->dailyRemaining) {
+            throw new RateLimitReached($this->exact, $this);
+        }
+
+        $this->minuteRateLimit--;
+        $this->dailyRemaining--;
+
+        return [
+            'dailyRemaining' => $this->dailyRemaining,
+            'minutelyRemaining' => $this->minuteRemaining
+        ];
+    }
+}

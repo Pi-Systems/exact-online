@@ -223,7 +223,7 @@ class ExactDocsReader
         if (str_starts_with($path, '/api/')) {
             // Dealing with a data endpoint
             $matches = [];
-            preg_match('/^\/api\/v1\/(?:beta\/|)\{division}\/(?<endpoint>.+)$/', $path, $matches);
+            preg_match('/^\/api\/v1\/(?:current|(?:beta\/|)\{division})\/(?<endpoint>.+)$/', $path, $matches);
             $link = $matches['endpoint'] ?? null;
 
             if (!$link) {
@@ -235,6 +235,11 @@ class ExactDocsReader
             $folders = array_map('ucfirst', explode('/', $link));
             // remove the first entry, it is a repeat of the service
             $class = array_pop($folders);
+            if (empty($folders)) {
+                // Kind of don't have a namespace for these.
+                // /me is the only one that matches this odd case at the time of writing.
+                $folders[] = 'System';
+            }
             $namespace = 'PISystems\\ExactOnline\\Model\Exact\\'. implode('\\', $folders);
             $folder = $this->targetDirectory . '/' . implode('/', $folders);
             $file = $folder.'/'.$class . '.php';
@@ -327,7 +332,7 @@ class ExactDocsReader
 
             $xpath = new \DOMXPath($page);
 
-            $items = $xpath->query('//html/body/form/table/tr[position()>2]');
+            $items = $xpath->query('//html/body/form/table/tr[position()>1]');
 
             $variables = [];
             foreach ($items as $item) {
@@ -365,6 +370,7 @@ class ExactDocsReader
 
                 $variables[] = str_replace(
                     [
+                        '{{pageSize}}',
                        '{{description}}',
                        '{{uri}}',
                        '{{localType}}',
@@ -373,6 +379,7 @@ class ExactDocsReader
                        '{{attributes}}',
                        '{{default}}'
                     ],[
+                        $pageSize,
                         $description,
                         $uri,
                         $local,

@@ -30,7 +30,7 @@ class Double extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return 'A double number';
+        return 'Double';
     }
 
     function validate(mixed $value): bool

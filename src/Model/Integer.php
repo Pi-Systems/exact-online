@@ -20,7 +20,7 @@ abstract class Integer extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return "A ".static::getBitCount()." bit integer";
+        return "Int".static::getBitCount();
     }
 
     function validate(mixed $value): bool

@@ -3,18 +3,16 @@
 namespace {{namespace}};
 
 use PISystems\ExactOnline\Model\DataSource;
+use PISystems\ExactOnline\Builder as Exact;
 use PISystems\ExactOnline\Builder\Edm;
 use PISystems\ExactOnline\Builder\PageSize;
 use PISystems\ExactOnline\Enum\HttpMethod;
 
-/**
+/**{{endpointDescriptions}}
  * @see {{resource}}
+ * @see https://www.odata.org/documentation/odata-version-2-0/overview/#AbstractTypeSystem
  */
-#[PageSize({{pagesize}})]
+{{attributes}}
 class {{class}} extends DataSource {
-
-    public static readonly array $METHODS = [{{methods}}];
-    public static readonly string $ENDPOINT = '{{path}}';
-
     {{properties}}
 }

@@ -21,7 +21,7 @@ class Boolean extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return 'A boolean value';
+        return '';
     }
 
     function validate(mixed $value): bool

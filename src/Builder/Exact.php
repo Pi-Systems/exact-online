@@ -20,9 +20,6 @@ use Psr\Http\Message\UriInterface;
  */
 class Exact extends ExactEnvironment
 {
-    const int PAGE_SIZE_DEFAULT = 60;
-    const int PAGE_SIZE_SYNC_AND_BULK = 1000;
-
     private ?UriInterface $tokenUri = null;
 
     public function generateTokenAccessUrl(): UriInterface

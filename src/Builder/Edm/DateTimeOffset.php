@@ -14,6 +14,6 @@ class DateTimeOffset extends DateTime
 
     public static function description(): ?string
     {
-        return 'A simple date time offset type.';
+        return '';
     }
 }

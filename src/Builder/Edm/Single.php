@@ -30,7 +30,7 @@ class Single extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return 'A single number';
+        return '1 Byte';
     }
 
     function validate(mixed $value): bool

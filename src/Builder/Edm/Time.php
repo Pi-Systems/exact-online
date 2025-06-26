@@ -15,7 +15,7 @@ class Time extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return 'A time';
+        return '';
     }
 
     public static function getLocalType(): string

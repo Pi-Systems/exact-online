@@ -34,7 +34,7 @@ class Decimal extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return 'A decimal number';
+        return 'Decimal';
     }
 
     function validate(mixed $value): bool

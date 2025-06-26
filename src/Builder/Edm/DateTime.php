@@ -17,7 +17,7 @@ class DateTime extends EdmEncodableDataStructure
 
     public static function description(): ?string
     {
-        return 'A simple date time type.';
+        return '';
     }
 
     public static function getLocalType(): string

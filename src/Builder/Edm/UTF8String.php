@@ -15,7 +15,7 @@ class UTF8String extends EdmDataStructure
 
     public static function description(): ?string
     {
-        return 'A string';
+        return '';
     }
 
     public static function getLocalType(): string

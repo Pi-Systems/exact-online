@@ -11,12 +11,15 @@ use Psr\Log\LoggerInterface;
 
 class ExactDocsReader
 {
+    const int PAGE_SIZE_DEFAULT = 60;
+    const int PAGE_SIZE_SYNC_AND_BULK = 1000;
+
     public bool $localOnly = false;
     public ?int $timeout = 1; // in seconds, between calls.
     public int $downloads = 0;
 
     public const string HOST = 'start.exactonline.nl';
-    public const string RESOURCE_ENDPOINT = 'https://'.self::HOST.'/docs/';
+    public const string RESOURCE_ENDPOINT = 'https://' . self::HOST . '/docs/';
     public const string REFERENCE_RESOURCES = 'HlpRestAPIResources.aspx';
 
     private ?string $dataTemplateContent = null;
@@ -40,22 +43,23 @@ class ExactDocsReader
     ];
 
     public function __construct(
-        protected CacheItemPoolInterface $cache,
+        protected CacheItemPoolInterface  $cache,
         protected RequestFactoryInterface $requestFactory,
-        protected ClientInterface $client,
-        protected LoggerInterface $logger,
+        protected ClientInterface         $client,
+        protected LoggerInterface         $logger,
         // The contents of this will not expire that quickly.
-        public int $expirationTime = 5*24*60*60,
-        public string $targetDirectory = __DIR__ . '/../Model/Exact' {
+        public int                        $expirationTime = 5 * 24 * 60 * 60,
+        public string                     $targetDirectory = __DIR__ . '/../Model/Exact' {
             set => str_ends_with($value, '/') ? $value : $value . '/';
         },
-        public string $dataTemplate = __DIR__.'/../Resources/DataTemplate.phps' {
+        public string                     $dataTemplate = __DIR__ . '/../Resources/DataTemplate.phps' {
             set => !file_exists($value) || is_readable($value) ? $value : throw new \RuntimeException("File {$value} is not readable.");
         },
-        public string $methodTemplate = __DIR__.'/../Resources/MethodTemplate.phps' {
+        public string                     $methodTemplate = __DIR__ . '/../Resources/MethodTemplate.phps' {
             set => !file_exists($value) || is_readable($value) ? $value : throw new \RuntimeException("File {$value} is not readable.");
         },
-    ) {
+    )
+    {
         if (!is_writable($this->targetDirectory)) {
             throw new \LogicException("Target directory {$this->targetDirectory} is not writable.");
         }
@@ -66,7 +70,7 @@ class ExactDocsReader
     /**
      * @throws ClientExceptionInterface
      */
-    protected function getPage(string $uri) : ?\DOMDocument
+    protected function getPage(string $uri): ?\DOMDocument
     {
         if (empty($uri)) {
             throw new \LogicException('URI cannot be empty');
@@ -119,14 +123,14 @@ class ExactDocsReader
                 return $this->getPage($location);
             }
 
-            if ($c < 200|| $c >= 300) {
+            if ($c < 200 || $c >= 300) {
                 $this->logger->critical("Failed to fetch ExactDocs page {$uri} (HTTP {$c})");
                 return null;
             }
 
             $contents = $response->getBody()->getContents();
             $headers = $response->getHeaders();
-            $item->set(json_encode(['headers'=>$headers, 'content'=>$contents]));
+            $item->set(json_encode(['headers' => $headers, 'content' => $contents]));
             $item->expiresAfter($this->expirationTime);
             $this->cache->save($item);
         }
@@ -148,21 +152,22 @@ class ExactDocsReader
         if (!$prev) {
             libxml_use_internal_errors(false);
         }
-        
+
         return $dom;
     }
 
     /**
-     * @var null|string $package If supplied, it is used to filter which pages to build. (Regex, filter is based on path)
      * @throws ClientExceptionInterface
+     * @var null|string $package If supplied, it is used to filter which pages to build. (Regex, filter is based on path)
      */
-    public function build(?string $package = null) : int {
+    public function build(?string $package = null): int
+    {
 
         $count = 0;
         $main = $this->getPage('#');
 
         if (!$main) {
-            $this->logger->emergency("Resource {#} not found. ". ($this->localOnly ? '(Local data only mode enabled, cache available? Cache set to ignore expire time?)' : '(Please check your internet connection.)'));
+            $this->logger->emergency("Resource {#} not found. " . ($this->localOnly ? '(Local data only mode enabled, cache available? Cache set to ignore expire time?)' : '(Please check your internet connection.)'));
             return 0;
         }
 
@@ -203,7 +208,7 @@ class ExactDocsReader
                 continue;
             }
             $this->logger->debug("Generating {$endpoint}");
-            $this->generateClassPage($department, $endpoint, $resource, $path, $methods, $scope);
+            $this->generateClassPage($endpoint, $resource, $path, $methods, $scope);
         }
 
         $this->writeEntityData();
@@ -212,12 +217,11 @@ class ExactDocsReader
     }
 
     private function generateClassPage(
-        string $department,
-        string $endpoint,
+        string  $endpoint,
         ?string $resource,
-        string $path,
-        string $methods,
-        string $scope
+        string  $path,
+        string  $methods,
+        string  $scope
     ): void
     {
         if (str_starts_with($path, '/api/')) {
@@ -240,9 +244,9 @@ class ExactDocsReader
                 // /me is the only one that matches this odd case at the time of writing.
                 $folders[] = 'System';
             }
-            $namespace = 'PISystems\\ExactOnline\\Model\Exact\\'. implode('\\', $folders);
+            $namespace = 'PISystems\\ExactOnline\\Model\Exact\\' . implode('\\', $folders);
             $folder = $this->targetDirectory . '/' . implode('/', $folders);
-            $file = $folder.'/'.$class . '.php';
+            $file = $folder . '/' . $class . '.php';
 
             if (!is_dir($folder) && mkdir($folder, 0777, true) === false) {
                 $this->logger->critical("Failed to create directory {$folder}, skipping.");
@@ -254,35 +258,59 @@ class ExactDocsReader
         }
 
 //        if (str_contains($path, 'Function Details')) {
-            // todo NYI
+        // todo NYI
 //        }
 
     }
 
-    private function writeDataEndpoint(string $file,  string $class, string $namespace, string $endpoint, ?string $resource, string $path, string $methods, string $scope): void
+    private function writeDataEndpoint(string $file, string $class, string $namespace, string $endpoint, ?string $resource, string $path, string $methods, string $scope): void
     {
         $this->dataTemplateContent ??= file_get_contents($this->dataTemplate);
+
+        $pageSize = self::PAGE_SIZE_DEFAULT;
+
+        if (preg_match('#/Sync|Bulk/#', $namespace)) {
+            $pageSize = self::PAGE_SIZE_SYNC_AND_BULK;
+        }
+
+        $attributes = [
+            'Exact\\PageSize(' . $pageSize . ')',
+            'Exact\\Endpoint("' . $path . '")',
+        ];
+
+
+        $aMethods = array_map('trim', explode(',', $methods));
+        foreach ($aMethods as $method) {
+            $attributes[] = 'Exact\\Method(HttpMethod::' . $method . ')';
+        }
+
+        $attribute = '';
+        foreach ($attributes as $attrib) {
+            $attribute .= sprintf('#[' . $attrib . ']' . PHP_EOL, $attribute);
+        }
 
         $content = str_replace(
             [
                 '{{namespace}}',
+                '{{attributes}}',
                 '{{class}}',
                 '{{endpoint}}',
                 '{{resource}}',
                 '{{path}}',
                 '{{methods}}',
                 '{{scope}}',
-                '{{properties}}'
+                '{{properties}}',
             ],
             [
                 $namespace,
+                rtrim($attribute),
                 $class,
                 $endpoint,
                 $resource ?? self::REFERENCE_RESOURCES,
                 $path,
-                implode(',', array_map(fn($m) => 'HttpMethod::'.strtoupper(trim($m)), explode(',',$methods))),
+                implode(',', array_map(fn($m) => 'HttpMethod::' . strtoupper(trim($m)), explode(',', $methods))),
                 $scope,
-                '#{{properties}}' // Is filled on the next pass, as we retrieve the page describing this.
+                '#{{properties}}', // Is filled on the next pass, as we retrieve the page describing this.
             ],
             $this->dataTemplateContent
         );
@@ -297,7 +325,7 @@ class ExactDocsReader
         $this->logger->debug("OK");
         $this->logger->debug("Scheduling property writing");
         if ($resource) {
-            $this->entityParseQueue[] = [$file, $resource];
+            $this->entityParseQueue[] = [$file, $resource, $aMethods];
         }
 
     }
@@ -310,9 +338,8 @@ class ExactDocsReader
         $total = count($this->entityParseQueue);
         $current = 0;
         $prev = 0;
-        foreach ($this->entityParseQueue as [$file, $uri]) {
+        foreach ($this->entityParseQueue as [$file, $uri, $availableMethods]) {
             $current++;
-
             $percent = round(($current / $total) * 100);
             if ($percent !== $prev) {
                 $this->logger->info("{$percent}% ({$current}/{$total})");
@@ -331,61 +358,159 @@ class ExactDocsReader
 
 
             $xpath = new \DOMXPath($page);
+            $gtk = $xpath->query('//p[@id="goodToKnow"]')->item(0);
+            $wh = $xpath->query('//p[@id="webHook"]')->item(0);
+            $docs = array_filter([$gtk, $wh]);
 
-            $items = $xpath->query('//html/body/form/table/tr[position()>1]');
+            $endpointDescriptions = implode(
+                PHP_EOL.PHP_EOL,
+                array_map(fn(\DOMElement $element) => $element->ownerDocument->saveHTML($element), $docs)
+            );
 
+            $endpointDescriptions = strip_tags(str_replace(['<br>', '<br/>', '<br />'], PHP_EOL, $endpointDescriptions));
+
+            if (!empty($endpointDescriptions)) {
+                $lines = explode(PHP_EOL, $endpointDescriptions);
+                $endpointDescriptions = PHP_EOL. " * ". trim(implode(PHP_EOL." * ", array_map('trim', $lines))) . PHP_EOL . " * ";
+            }
+
+            $table = $xpath->query('//table[@id="referencetable"]')->item(0);
+            $header = $xpath->query('tr[position()=1]/th', $table);
+            $columns = [];
+
+            // The pages were not created equally
+            // On quite a few pages 'junk' columns are added, such as 'Value' added twice, for 'post' and 'put'.
+            // Thankfully, we don't give a shit about 'value'
+            foreach ($header as $k => $col) {
+                $text = preg_replace('/\W/', '', $col->textContent);
+                switch ($text) {
+                    // Annoying, but I get it... we don't label columns like this either.
+                    // Just wish they added a data-tag or something.
+                    case '':
+                        $columns['checkmark'] = $k;
+                        break;
+                    case 'Name':
+                        $columns['name'] = $k;
+                        break;
+                    case 'Mandatory':
+                        $columns['mandatory'] = $k;
+                        break;
+                    case 'Type':
+                        $columns['type'] = $k;
+                        break;
+                    case 'Description':
+                        $columns['description'] = $k;
+                        break;
+                }
+            }
+
+            $items = $xpath->query('tr[position()>1]', $table);
             $variables = [];
+            /** @var \DOMElement $item */
             foreach ($items as $item) {
+                $classesString = trim($item->getAttribute('class'));
+                $classes = explode(' ', $classesString);
                 $cells = $item->getElementsByTagName('td');
-                $required = strtolower(trim($cells[2]->textContent)) !== 'false';
-                $name = trim($cells[1]->textContent);
-                $edm = trim($cells[5]->textContent);
-                $description = trim($cells[6]->textContent);
+
+                $required = strtolower(trim($cells[$columns['mandatory']]->textContent)) !== 'false';
+                $name = trim($cells[$columns['name']]->textContent);
+                $edm = trim($cells[$columns['type']]->textContent);
+                $input = $xpath->query('td/input', $item)->item($columns['checkmark']);
+                $description = trim($cells[$columns['description']]->textContent);
 
                 if (!empty($description)) {
                     $lines = explode(PHP_EOL, $description);
-                    $description = trim(implode("     * ", array_map('trim', $lines))) . PHP_EOL ."     * ";
+                    $description = trim(implode("     * ", array_map('trim', $lines))) . PHP_EOL . "     * ";
                 }
 
                 [$type, $local, $typeDescription] = $edmMap[$edm] ?? [null, 'mixed', ''];
 
+                $attributes = [];
 
-                $attribute = null;
+                $isPrimaryKey = $input?->attributes->getNamedItem('data-key')?->nodeValue === 'True';
+
+
                 if (!empty($type)) {
-                    $attribute = $type;
-                    if (str_starts_with($attribute, 'PISystems\\ExactOnline\\Builder\\Edm')) {
-                        $attribute = substr($attribute, strlen('PISystems\\ExactOnline\\Builder\\Edm\\'));
-                    }
-
+                    // Required is based on the method used, so just treat everything as optional until validation.
                     if (!$required && $local !== 'mixed') {
                         $local = 'null|' . $local;
                     }
-                    $attribute = PHP_EOL.'    #[EDM\\' . $attribute . ']';
-                    if ($required) {
-                        $attribute .= PHP_EOL.'    #[EDM\\Required]';
+
+                    if (str_starts_with($type, 'PISystems\\ExactOnline\\Builder\\Edm')) {
+                        $attributes[] = 'EDM\\' .
+                            substr($type, strlen('PISystems\\ExactOnline\\Builder\\Edm\\'));
                     }
+                }
+
+                if ($isPrimaryKey) {
+                    $required = true;
+                    $attributes[] = 'Exact\\Key';
+                }
+
+                if ($required) {
+                    $attributes[] .= 'Exact\\Required';
+                }
+
+                // Availability calculation is a joke.
+                // It's all based on the input fields.
+                // Where in the browser you would have js to ... stupidly ... calculate the values into silly classes.
+                // We don't have that luxury and have to pry the values from annoying attributes.
+                $methods = ['GET']; // Get is a given
+//
+                $showGet = in_array('showget', $classes);
+
+                if (
+                    !$showGet &&
+                    !in_array('hidepost', $methods, true) &&
+                    in_array('POST', $availableMethods, true)
+                ) {
+                    $methods[] = 'POST';
+                }
+
+                if (
+                    !$showGet &&
+                    !in_array('hideput', $methods, true) &&
+                    in_array('PUT', $availableMethods, true)
+                ) {
+                    $methods[] = 'PUT';
+                }
+
+                if (
+                    $isPrimaryKey &&
+                    in_array('DELETE', $availableMethods, true)
+                ) {
+                    $methods[] = 'DELETE';
+                }
+
+                foreach ($methods as $method) {
+                    $attributes[] = 'Exact\\Method(HttpMethod::' . $method . ')';
+                }
+
+
+                $attribute = PHP_EOL;
+                foreach ($attributes as $entry) {
+                    $attribute .= sprintf('    #[%s]' . PHP_EOL, $entry);
                 }
 
                 $default = $required ? '' : ' = null';
 
                 $variables[] = str_replace(
                     [
-                        '{{pageSize}}',
-                       '{{description}}',
-                       '{{uri}}',
-                       '{{localType}}',
-                       '{{typeDescription}}',
-                       '{{name}}',
-                       '{{attributes}}',
-                       '{{default}}'
-                    ],[
-                        $pageSize,
+                        '{{description}}',
+                        '{{uri}}',
+                        '{{localType}}',
+                        '{{typeDescription}}',
+                        '{{name}}',
+                        '{{attributes}}',
+                        '{{default}}'
+                    ],
+                    [
                         $description,
                         $uri,
                         $local,
                         $typeDescription,
                         $name,
-                        $attribute,
+                        rtrim($attribute),
                         $default,
                     ],
                     $methodTemplateContent
@@ -393,8 +518,16 @@ class ExactDocsReader
 
             }
 
+            print $endpointDescriptions;
+
             $content = file_get_contents($file);
-            $content = str_replace('#{{properties}}', implode(PHP_EOL, $variables), $content);
+            $content = str_replace([
+                '#{{properties}}',
+                '{{endpointDescriptions}}'
+            ], [
+                implode(PHP_EOL, $variables),
+                $endpointDescriptions,
+            ], $content);
             file_put_contents($file, $content);
             $this->logger->debug("Wrote {$uri}.");
         }

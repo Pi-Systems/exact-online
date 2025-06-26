@@ -33,8 +33,8 @@ class DevReader
         $reader->localOnly = true;
 
         try {
-//            $reader->build('/.*\/read\/.*/');
-            $reader->build();
+            $reader->build('/.*\/crm\/.*/');
+//            $reader->build();
         } catch (ClientExceptionInterface $e) {
             print $e->getMessage();
         }

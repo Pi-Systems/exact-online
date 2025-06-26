@@ -7,8 +7,6 @@ use PISystems\ExactOnline\ExactConnectionFactory;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Model\DataSource;
-use PISystems\ExactOnline\Model\EdmDataStructure;
-use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
 use PISystems\ExactOnline\Model\ExactEnvironment;
 use PISystems\ExactOnline\Model\FilterInterface;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
@@ -74,17 +72,18 @@ class Exact extends ExactEnvironment
         null|string|FilterInterface $filter = null,
     ): \Generator
     {
+
         if (!is_a($class, DataSource::class, true)) {
             throw new \InvalidArgumentException(sprintf('Class "%s" is not a valid DataSource', $class));
         }
+
+        $meta = $this->getDataSourceMetaData($class);
 
         if ($filter instanceof FilterInterface) {
             $filter = $filter->getFilter($class);
         }
 
-        /** @var array $methods */
-        $methods = constant($class.'::METHODS');
-        if (!in_array(HttpMethod::GET, $methods)) {
+        if (!$meta->supports(HttpMethod::GET)) {
             throw new MethodNotSupported($this, $class, HttpMethod::GET);
         }
 
@@ -95,7 +94,7 @@ class Exact extends ExactEnvironment
             "%s://%s%s",
             ExactConnectionFactory::CONN_API_PROTOCOL,
             ExactConnectionFactory::CONN_API_DOMAIN,
-            $class::ENDPOINT
+            $meta->endpoint
         ));
 
         if ($filter) {
@@ -144,7 +143,7 @@ class Exact extends ExactEnvironment
 
                 $entry = new $class();
 
-                $this->hydrate($entry, $item);
+                $meta->hydrate($entry, $item);
 
                 yield $entry;
             }
@@ -166,12 +165,13 @@ class Exact extends ExactEnvironment
      */
     public function create(DataSource $object): DataSource
     {
-        if (!in_array(HttpMethod::POST, $object::METHODS)) {
+        $meta = $this->getDataSourceMetaData($object);
+        if (!$meta->supports(HttpMethod::POST)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::POST);
         }
 
-        $data = $this->deflate($object);
-        $uri = $this->uriFactory->createUri($object::ENDPOINT);
+        $data = $meta->deflate($object, HttpMethod::POST);
+        $uri = $this->uriFactory->createUri($meta->endpoint);
         $request = $this->createRequest($uri, 'POST', new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
         $data = $this->decodeJsonRequestResponse($request, $response);
@@ -186,7 +186,7 @@ class Exact extends ExactEnvironment
         /** @var DataSource $entry */
         $entry = new $class();
 
-        $this->hydrate($entry, $data);
+        $meta->hydrate($entry, $data);
 
         return $entry;
     }
@@ -200,22 +200,23 @@ class Exact extends ExactEnvironment
      */
     public function update(DataSource $object): DataSource
     {
-        if (!in_array(HttpMethod::PUT, $object::METHODS)) {
+        $meta = $this->getDataSourceMetaData($object);
+        if (!$meta->supports(HttpMethod::PUT)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::PUT);
         }
 
-        $key = $this->getPrimaryKey($object);
+        $key = $meta->getPrimaryKeyValue($object);
 
         if (!$key) {
             throw new \LogicException('Unable to delete object, no primary key found.');
         }
 
-        $data = $this->deflate($object);
+        $data = $meta->deflate($object, HttpMethod::PUT);
         $uri = $this->uriFactory->createUri(sprintf(
             "%s://%s%s(guid'%s')",
             ExactConnectionFactory::CONN_API_PROTOCOL,
             ExactConnectionFactory::CONN_API_DOMAIN,
-            $object::ENDPOINT,
+            $meta->endpoint,
             $key
         ));
         $request = $this->createRequest($uri, 'POST', new JsonDataStream($data));
@@ -227,18 +228,19 @@ class Exact extends ExactEnvironment
         $data = $this->decodeJsonRequestResponse($request, $response);
 
         if ($data['d']) {
-            $this->hydrate($object, $data['d']);
+            $meta->hydrate($object, $data['d']);
         }
         return $object;
     }
 
     public function delete(DataSource $object): bool
     {
-        if (!in_array(HttpMethod::DELETE, $object::METHODS)) {
+        $meta = $this->getDataSourceMetaData($object);
+        if (!$meta->supports(HttpMethod::DELETE)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::DELETE);
         }
 
-        $key = $this->getPrimaryKey($object);
+        $key = $meta->getPrimaryKeyValue($object);
 
         if (!$key) {
             throw new \LogicException('Unable to delete object, no primary key found.');
@@ -248,7 +250,7 @@ class Exact extends ExactEnvironment
             "%s://%s%s(guid'%s')",
             ExactConnectionFactory::CONN_API_PROTOCOL,
             ExactConnectionFactory::CONN_API_DOMAIN,
-            $object::ENDPOINT,
+            $meta->endpoint,
             $key
         ));
 
@@ -258,68 +260,5 @@ class Exact extends ExactEnvironment
             // Intentionally catching 410, we want it deleted, the fact it already was is just w/e at this point.
             [200, 204, 410]
         );
-    }
-
-
-    public function hydrate(
-        DataSource $object,
-        array      $data,
-    ): void
-    {
-        foreach ($data as $key => $value) {
-
-            if (!property_exists($object, $key)) {
-                // Ignore non-existent / unknown entries (But still trigger E_NOTICE for dev env)
-                trigger_error(sprintf('Unknown property "%s" on %s', $key, get_class($object)));
-                continue;
-            }
-            // Get the type
-            $reflectionProperty = new \ReflectionProperty($object, $key);
-            $attributes = $reflectionProperty->getAttributes(EDMDataStructure::class, \ReflectionAttribute::IS_INSTANCEOF);
-
-            if (empty($attributes)) {
-                // Ignore any attributes we don't know; they could easily cause errors to trigger.
-                // Update the source entity if these are needed.
-                continue;
-            }
-
-            if (count($attributes) > 1) {
-                throw new \LogicException('More than one EDMDataStructure attribute found on property ' . $key);
-            }
-
-            // Hydrate the entry
-            $attribute = $attributes[0]->newInstance();
-
-            if ($attribute instanceof EdmEncodableDataStructure) {
-                $value = $attribute->decode($value);
-                $reflectionProperty->setValue($object, $value);
-                continue;
-            }
-
-            // Setting it will just trigger auto-cast without issues.
-            $object->{$key} = $value;
-        }
-    }
-
-    public function deflate(DataSource $object): array
-    {
-        $reflection = new \ReflectionClass($object);
-        $data = [];
-
-        foreach ($reflection->getProperties() as $property) {
-            $attributes = $property->getAttributes(EDMDataStructure::class, \ReflectionAttribute::IS_INSTANCEOF);
-
-            if (empty($attributes)) {
-                continue;
-            }
-            $attribute = $attributes[0]->newInstance();
-            if ($attribute instanceof EdmEncodableDataStructure) {
-                $data[$property->getName()] = $attribute->encode($property->getValue($object));
-                continue;
-            }
-
-            $data[$property->getName()] = $property->getValue($object);
-        }
-        return $data;
     }
 }

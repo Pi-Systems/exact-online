@@ -2,6 +2,8 @@
 
 namespace PISystems\ExactOnline\Builder;
 
+use PISystems\ExactOnline\Model\DataSourceMeta;
+use PISystems\ExactOnline\Model\EdmDataStructure;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use Psr\Http\Client\ClientExceptionInterface;
@@ -212,6 +214,7 @@ class ExactDocsReader
         }
 
         $this->writeEntityData();
+        $this->buildMeta();
 
         return $count;
     }
@@ -325,7 +328,7 @@ class ExactDocsReader
         $this->logger->debug("OK");
         $this->logger->debug("Scheduling property writing");
         if ($resource) {
-            $this->entityParseQueue[] = [$file, $resource, $aMethods];
+            $this->entityParseQueue[] = [$file, $resource, $aMethods, $namespace . '\\' . $class];
         }
 
     }
@@ -350,7 +353,7 @@ class ExactDocsReader
 
             try {
                 $page = $this->getPage($uri);
-            } catch (ClientExceptionInterface $e) {
+            } catch (ClientExceptionInterface) {
                 $this->logger->debug("Failed to retrieve {$uri}.");
                 continue;
             }
@@ -518,7 +521,6 @@ class ExactDocsReader
 
             }
 
-            print $endpointDescriptions;
 
             $content = file_get_contents($file);
             $content = str_replace([
@@ -530,6 +532,31 @@ class ExactDocsReader
             ], $content);
             file_put_contents($file, $content);
             $this->logger->debug("Wrote {$uri}.");
+        }
+    }
+
+    /**
+     * Technically not needed to do, as the ExactEnvironment::getDataSourceMetaData does the same.
+     * However. this does catch any real issues with all the above code if this goes wrong.
+     * And speeds up initial runtime drastically.
+     *
+     * @throws InvalidArgumentException
+     */
+
+    protected function buildMeta() : void
+    {
+        $this->logger->info('Constructing meta data.');
+
+        $metas = [];
+        foreach ($this->entityParseQueue as [,,,$class]) {
+            $item = $this->cache->getItem($class . '::datasourcemeta');
+            $meta = DataSourceMeta::createFromClass($class);
+            $s = serialize($meta);
+            $item->set($s);
+
+            $item->expiresAfter(60 * 60 * 24 * 7);
+            $this->cache->save($item);
+            $metas[$class] = $s;
         }
     }
 }

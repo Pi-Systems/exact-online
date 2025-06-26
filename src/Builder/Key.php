@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Builder;
 
 #[\Attribute(\Attribute::TARGET_PROPERTY)]
-class Key
+class Key extends ExactAttribute
 {
 
 }

@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Builder;
 
 #[\Attribute(\Attribute::TARGET_CLASS)]
-class PageSize
+class PageSize extends ExactAttribute
 {
     public function __construct(
         public int $value = 60

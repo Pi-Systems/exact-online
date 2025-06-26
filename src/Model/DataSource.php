@@ -2,10 +2,9 @@
 
 namespace PISystems\ExactOnline\Model;
 
-use PISystems\ExactOnline\Enum\HttpMethod;
+use PISystems\ExactOnline\Model\Traits\PublicPropertySerializeTrait;
 
-class DataSource
+class DataSource implements \Serializable, \JsonSerializable
 {
-    const array METHODS = [HttpMethod::GET];
-    const string ENDPOINT = 'https://start.exactonline.nl/api/v1/';
+    use PublicPropertySerializeTrait;
 }

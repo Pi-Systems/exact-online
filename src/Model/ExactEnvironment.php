@@ -2,6 +2,9 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use PISystems\ExactOnline\Builder\EdmRegistry;
+use PISystems\ExactOnline\Builder\Endpoint;
+use PISystems\ExactOnline\Builder\ExactAttribute;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Events\AdministrationChange;
 use PISystems\ExactOnline\Events\CredentialsSaveEvent;
@@ -29,6 +32,8 @@ use Psr\Log\LoggerInterface;
 {
 
     public bool $treatEmptyAsError = true;
+    private array $objectAttributeCache = [];
+
     private ?ExactRateLimits $rateLimits = null;
 
     public function __construct(
@@ -63,7 +68,6 @@ use Psr\Log\LoggerInterface;
         $this->configuration->exact = $this;
         $this->configuration->dispatcher = $this->dispatcher;
         $this->dispatcher->lock();
-
     }
 
     final protected function assertEventSanity(): void
@@ -335,11 +339,26 @@ use Psr\Log\LoggerInterface;
         }
     }
 
-    final public function getPrimaryKey(DataSource $source) : ?string {
-        return null;
-    }
+    final public function getDataSourceMetaData(DataSource|string $source) : DataSourceMeta
+    {
+        if ($source instanceof DataSource) {
+            $source = $source::class;
+        }
+        return $this->objectAttributeCache[$source] ??= (function() use ($source) {
 
-    final public function getPrimaryKeyName(DataSource $source) : ?string {
-        return null;
+            $item = $this->cache->getItem($source. '::datasourcemeta');
+            if ($item->isHit()) {
+                return unserialize($s, ['allowed_classes' => [
+                    DataSourceMeta::class,
+                    ... EdmRegistry::EDM_CLASSES
+                ]]);
+            }
+
+            $meta = DataSourceMeta::createFromClass($source);
+            $item->set(serialize($meta));
+            $item->expiresAfter(60*60*24*7);
+            $this->cache->save($item);
+            return $meta;
+        })();
     }
 }

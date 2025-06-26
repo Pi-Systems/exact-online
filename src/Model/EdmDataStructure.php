@@ -2,7 +2,9 @@
 
 namespace PISystems\ExactOnline\Model;
 
-abstract class EdmDataStructure
+use PISystems\ExactOnline\Builder\ExactAttribute;
+
+abstract class EdmDataStructure extends ExactAttribute
 {
     /**
      * Supply the full name: Edm.<type>

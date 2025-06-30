@@ -24,7 +24,7 @@ class ExactConnectionFactory
 
     public const string CONN_API_PATH = '/api/v1';
 
-    public const string CONN_API_OAUTH_PATH ='/api/oauth2/auth';
+    public const string CONN_API_OAUTH_PATH = '/api/oauth2/auth';
 
     public const string CONN_API_TOKEN_PATH = '/api/oauth2/token';
 
@@ -34,17 +34,17 @@ class ExactConnectionFactory
     private readonly ExactEventDispatcher|ExactWrappedEventDispatcher $dispatcher;
 
     public function __construct(
-        private readonly CacheItemPoolInterface    $cache,
-        private readonly RequestFactoryInterface   $requestFactory,
-        private readonly UriFactoryInterface      $uriFactory,
-        private readonly ClientInterface           $client,
-        private readonly LoggerInterface           $logger,
+        private readonly CacheItemPoolInterface            $cache,
+        private readonly RequestFactoryInterface           $requestFactory,
+        private readonly UriFactoryInterface               $uriFactory,
+        private readonly ClientInterface                   $client,
+        private readonly LoggerInterface                   $logger,
         /**
          * If set, only 1 instance will be permitted per administration.
          * Create will attempt to load the existing before creating a new one.
          * If one exists, neither BeforeCreate nor Created events are called.
          */
-        public readonly bool $singleAdministration = true,
+        public readonly bool                               $singleAdministration = true,
         /**
          * Warning: Using the base EventDispatcherInterface will allow trivial `->lock()` bypassing.
          */
@@ -60,10 +60,31 @@ class ExactConnectionFactory
         }
     }
 
+    public function pageUri(
+        string        $path,
+        ?UriInterface $base = null,
+    ): UriInterface
+    {
+        $base ??= $this->uriFactory->createUri();
+
+        return $base
+            ->withScheme(self::CONN_API_PROTOCOL)
+            ->withHost(self::CONN_API_DOMAIN)
+            ->withPath(self::CONN_API_PATH . $path);
+    }
+
+    public function generateTokenAccessUrl(): UriInterface
+    {
+        return $this->tokenUri ??= $this->pageUri(
+            ExactConnectionFactory::CONN_API_TOKEN_PATH
+        );
+    }
+
+
     public function generateOAuthUri(
-        string $clientId,
-        string $redirectPath,
-        bool $force = false,
+        string  $clientId,
+        string  $redirectPath,
+        bool    $force = false,
         /**
          * If left blank, uniqid() will be used for some csrf protection.
          *
@@ -79,10 +100,10 @@ class ExactConnectionFactory
          * @see https://support.exactonline.com/community/s/knowledge-base#All-All-DNO-Content-rest-restrictions
          */
         ?string &$state = null
-    ) : UriInterface
+    ): UriInterface
     {
         if (!Validation::is_guid($clientId)) {
-            throw new \InvalidArgumentException("Client id must be a valid guid");       
+            throw new \InvalidArgumentException("Client id must be a valid guid");
         }
 
         if (!filter_var($redirectPath, FILTER_VALIDATE_URL)) {
@@ -91,6 +112,7 @@ class ExactConnectionFactory
 
         $state ??= uniqid();
 
+        // Cannot use `pageUri` the base path does not include CONN_API_PATH
         return $this->uriFactory->createUri(sprintf(
             "%s://%s%s?%s",
             self::CONN_API_PROTOCOL,
@@ -115,12 +137,11 @@ class ExactConnectionFactory
         #[\SensitiveParameter]
         ExactRuntimeConfiguration $configuration,
         ?int                      $administration = null
-    ) : Exact
+    ): Exact
     {
         if ($this->singleAdministration) {
             $client = $this->findOneByAdministration($administration);
-            if ($client)
-            {
+            if ($client) {
                 return $client;
             }
             unset($client);
@@ -142,14 +163,15 @@ class ExactConnectionFactory
         }
 
         $exact = new Exact(
-            $beforeCreateEvent->administration,
-            $beforeCreateEvent->cache,
-            $beforeCreateEvent->requestFactory,
-            $beforeCreateEvent->uriFactory,
-            $beforeCreateEvent->client,
-            $beforeCreateEvent->logger,
-            $this->dispatcher,
-            $configuration
+            administration: $beforeCreateEvent->administration,
+            configuration: $configuration,
+            requestFactory: $beforeCreateEvent->requestFactory,
+            uriFactory: $beforeCreateEvent->uriFactory,
+            client: $beforeCreateEvent->client,
+            connectionFactory: $this,
+            logger: $beforeCreateEvent->logger,
+            dispatcher: $this->dispatcher,
+            cache: $beforeCreateEvent->cache,
         );
 
         $createdEvent = new Created($exact);
@@ -169,9 +191,9 @@ class ExactConnectionFactory
         return $exact;
     }
 
-    public function instances() : \Generator
+    public function instances(): iterable
     {
-        yield from $this->instances;
+        return new \ArrayIterator($this->instances);
     }
 
     /**
@@ -181,19 +203,17 @@ class ExactConnectionFactory
      * @param int|null $administration
      * @return Exact|null
      */
-    public function findOneByAdministration(?int $administration = null) : ?Exact
+    public function findOneByAdministration(?int $administration = null): ?Exact
     {
         if ($this->singleAdministration) {
-            return $this->instances[$administration??-1] ?? null;
+            return $this->instances[$administration ?? -1] ?? null;
         }
 
         $administration ??= -1;
-        foreach ($this->instances() as $instance) {
-            if ($instance->administration === $administration) {
-                return $instance;
-            }
-        }
-        return null;
+        return array_find(iterator_to_array(
+            $this->instances()),
+            fn($instance) => $instance->administration === $administration
+        );
     }
 
 }

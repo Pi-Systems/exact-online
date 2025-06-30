@@ -58,20 +58,20 @@ class ExactRuntimeConfiguration
     }
 
     public function __construct(
-        public readonly string            $clientId,
-        public readonly string            $redirectUri,
         #[\SensitiveParameter]
-        private readonly string           $clientSecret,
+        private readonly ExactAppConfigurationInterface $exactAppConfiguration,
         #[\SensitiveParameter]
-        private readonly string           $authorizationCode,
+        private ?string                        $organizationAuthorizationCode = null,
         #[\SensitiveParameter]
-        private ?string                   $accessToken = null,
+        private ?string                                 $organizationAccessToken = null,
         #[\SensitiveParameter]
-        private ?int                      $accessTokenExpires = null,
+        private ?int                                    $organizationAccessTokenExpires = null,
         #[\SensitiveParameter]
-        private ?string                   $refreshToken = null,
-        public readonly bool $allowSave = true,
-        public readonly string $userAgent = 'PISystems/ExactOnline',
+        private ?string                                 $organizationRefreshToken = null,
+        // You're not turning this off once it's been constructing.
+        public readonly bool                            $allowSave = true,
+        // We're also not suddenly, magically going to be something else during runtime.
+        public readonly string                          $userAgent = 'PISystems/ExactOnline',
         /**
          * If set, the library will fire off a 'SoftLimitReached' event when the minutely limit
          * has been hit.
@@ -84,6 +84,22 @@ class ExactRuntimeConfiguration
     )
     {
 
+    }
+
+    public function clientId() : string
+    {
+        return $this->exactAppConfiguration->clientId();
+    }
+
+    public function redirectUri() : string
+    {
+        return $this->exactAppConfiguration->redirectUri();
+    }
+
+    public function authorize(string $token) : void
+    {
+        $this->organizationAuthorizationCode = $token;
+        $this->save();
     }
 
     protected function assertInActiveState(): void
@@ -104,47 +120,53 @@ class ExactRuntimeConfiguration
     {
         $this->assertInActiveState();
 
-        if ($this->refreshToken) {
+        if ($this->organizationRefreshToken) {
             $request = $request->withBody(
-                new FormStream([
-                'refresh_token' => $this->refreshToken,
-                'grant_type' => 'refresh_token',
-                'client_id' => $this->clientId,
-                'client_secret' => $this->clientSecret,
-            ]));
+                $this->exactAppConfiguration->addClientDetails(
+                    new FormStream([
+                        'refresh_token' => $this->organizationRefreshToken,
+                        'grant_type' => 'refresh_token',
+                    ]),
+                    ExactAppConfigurationInterface::CLIENT_ID | ExactAppConfigurationInterface::CLIENT_SECRET
+                ));
         } else {
             $request = $request->withBody(
-                new FormStream([
-                    'client_id' => $this->clientId,
-                    'client_secret' => $this->clientSecret,
-                    'redirect_uri' => $this->redirectUri,
-                    'grant_type' => 'authorization_code',
-                    'code' => $this->authorizationCode,
-                ])
+                $this->exactAppConfiguration->addClientDetails(
+                    new FormStream([
+                        'grant_type' => 'authorization_code',
+                        'code' => $this->organizationAuthorizationCode,
+                    ]),
+                    ExactAppConfigurationInterface::CLIENT_ID | ExactAppConfigurationInterface::CLIENT_SECRET | ExactAppConfigurationInterface::CLIENT_REDIRECT_URI
+
+                )
             );
         }
 
         return $request->withHeader('Content-Type', FormStream::CONTENT_TYPE);
-
     }
 
     public function addAuthorizationData(RequestInterface $request): RequestInterface {
-        if (!$this->accessToken) {
+        if (!$this->organizationAccessToken) {
             throw new UnauthenticatedError($this->exact,
                 new RequestException('No access token set', $request)
             );
         }
 
-        return $request->withHeader('Authorization', 'Bearer ' . $this->accessToken);
+        return $request->withHeader('Authorization', 'Bearer ' . $this->organizationAccessToken);
+    }
+
+    public function hasAuthorizationData() : bool
+    {
+        return null !== $this->organizationAuthorizationCode;
     }
 
     public function hasValidAccessToken() : bool
     {
-        if (!$this->accessToken) {
+        if (!$this->organizationAccessToken) {
             return false;
         }
 
-        if (($this->accessTokenExpires - self::TOKEN_EXPIRE_SLUSH) < time()) {
+        if (($this->organizationAccessTokenExpires - self::TOKEN_EXPIRE_SLUSH) < time()) {
             return false;
         }
 
@@ -153,10 +175,10 @@ class ExactRuntimeConfiguration
 
     public function hasRefreshToken() : bool
     {
-        return null !== $this->refreshToken;
+        return null !== $this->organizationRefreshToken;
     }
 
-    public function setAccessToken(string $accessToken, int $expires): static
+    public function setOrganizationAccessToken(string $accessToken, int $expires): static
     {
         $this->assertInActiveState();
 
@@ -167,17 +189,17 @@ class ExactRuntimeConfiguration
             return $this;
         }
 
-        $this->accessToken = $accessToken;
-        $this->accessTokenExpires = $expires;
+        $this->organizationAccessToken = $accessToken;
+        $this->organizationAccessTokenExpires = $expires;
 
         return $this;
     }
 
-    public function setRefreshToken(string $refreshToken): static
+    public function setOrganizationRefreshToken(string $organizationRefreshToken): static
     {
         $this->assertInActiveState();
 
-        if (!$this->accessToken) {
+        if (!$this->organizationAccessToken) {
             throw new \LogicException('Cannot set refresh token without an access token');
         }
 
@@ -188,7 +210,7 @@ class ExactRuntimeConfiguration
             return $this;
             }
 
-        $this->refreshToken = $refreshToken;
+        $this->organizationRefreshToken = $organizationRefreshToken;
 
         return $this;
     }
@@ -203,10 +225,10 @@ class ExactRuntimeConfiguration
 
         $e = new CredentialsSaveEvent(
             $this->exact,
-            $this->clientId,
-            $this->redirectUri,
-            $this->clientSecret,
-            $this->authorizationCode
+            $this->organizationAuthorizationCode,
+            $this->organizationAccessToken,
+            $this->organizationAccessTokenExpires,
+            $this->organizationRefreshToken
         );
 
         $this->dispatcher->dispatch($e);

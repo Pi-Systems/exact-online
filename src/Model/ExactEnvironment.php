@@ -2,22 +2,20 @@
 
 namespace PISystems\ExactOnline\Model;
 
-use PISystems\ExactOnline\Builder\EdmRegistry;
-use PISystems\ExactOnline\Builder\Endpoint;
-use PISystems\ExactOnline\Builder\ExactAttribute;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Events\AdministrationChange;
-use PISystems\ExactOnline\Events\CredentialsSaveEvent;
+use PISystems\ExactOnline\ExactConnectionFactory;
 use PISystems\ExactOnline\Exceptions\ExactCommunicationError;
 use PISystems\ExactOnline\Exceptions\ExactEmptyResponseError;
-use PISystems\ExactOnline\Exceptions\ExactRequestError;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\ExactResponseNOKError;
-use PISystems\ExactOnline\Exceptions\MissingListenerException;
-use PISystems\ExactOnline\Model\Exact\System\Me;
+use PISystems\ExactOnline\Model\Exact as Model;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\FormStream;
+use PISystems\ExactOnline\Polyfill\SimpleArrayLogger;
+use PISystems\ExactOnline\Polyfill\SimpleFileCache;
 use Psr\Cache\CacheItemPoolInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
@@ -28,13 +26,16 @@ use Psr\Http\Message\UriFactoryInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 
-/*sealed*/ abstract class ExactEnvironment /*permits Exact*/
+/*sealed*/
+
+abstract class ExactEnvironment /*permits Exact*/
 {
 
     public bool $treatEmptyAsError = true;
-    private array $objectAttributeCache = [];
-
     private ?ExactRateLimits $rateLimits = null;
+    public  readonly CacheItemPoolInterface $cache;
+    public readonly ExactEventDispatcher $dispatcher;
+    public readonly LoggerInterface $logger;
 
     public function __construct(
         public ?int                                $administration = null {
@@ -50,31 +51,35 @@ use Psr\Log\LoggerInterface;
                 $this->administration = $value;
             }
         },
-        protected CacheItemPoolInterface           $cache,
+        private readonly ExactRuntimeConfiguration $configuration,
         protected RequestFactoryInterface          $requestFactory,
         protected UriFactoryInterface              $uriFactory,
         protected ClientInterface                  $client,
-        protected LoggerInterface                  $logger,
-        protected ExactEventDispatcher             $dispatcher,
+        protected ExactConnectionFactory           $connectionFactory,
+        ?LoggerInterface                           $logger = null,
+        ?EventDispatcherInterface                  $dispatcher = null,
         #[\SensitiveParameter]
-        private readonly ExactRuntimeConfiguration $configuration
+        ?CacheItemPoolInterface                    $cache = null
     )
     {
+        $this->cache = $cache ?? new SimpleFileCache(__DIR__ . '/../Resources/ExactOnline', 'default');
+        $this->dispatcher = $dispatcher
+            ? new ExactEventDispatcher()
+            : new ExactWrappedEventDispatcher($this->dispatcher);
+
+        $this->logger = $logger ?? new SimpleArrayLogger();
+
         // Not even sure how the second test could ever not be true...
         // Reflection shenanigans, probably.
         if (null !== $this->configuration->exact && $this->configuration->exact !== $this) {
             throw new \LogicException('Refusing to attach the supplied configuration to this Exact instance, it is already coupled.');
         }
+
+        ExactMetaDataFactory::$cache ??= $this->cache;
+
         $this->configuration->exact = $this;
         $this->configuration->dispatcher = $this->dispatcher;
         $this->dispatcher->lock();
-    }
-
-    final protected function assertEventSanity(): void
-    {
-        if ($this->configuration->allowSave && !$this->dispatcher->hasListenersForEvent(CredentialsSaveEvent::class)) {
-            throw new MissingListenerException(CredentialsSaveEvent::class, $this);
-        }
     }
 
     final protected function loadAdministrationData(): int
@@ -83,13 +88,16 @@ use Psr\Log\LoggerInterface;
             return $this->administration;
         }
 
-        $uri = $this->uriFactory->createUri(Me::ENDPOINT . '?$select=CurrentDivision');
+        $meta = Model\System\Me::meta();
+        $uri = $this->uriFactory->createUri(
+            $this->connectionFactory->pageUri($meta->endpoint . '?$select=CurrentDivision')
+        );
         $request = $this->createRequest($uri);
         $response = $this->sendAuthenticatedRequest($request);
         $data = $this->decodeJsonRequestResponse($request, $response);
 
-        $me = new Me();
-        $this->hydrate($me, $data);
+        $me = new Model\System\Me();
+        $meta->hydrate($me, $data);
 
         if (!$me->CurrentDivision) {
             throw new ExactResponseError('Unable to determine current division.', $request, $response);
@@ -145,7 +153,7 @@ use Psr\Log\LoggerInterface;
         $headers = array_merge([
             'Accept' => 'application/json',
             'User-Agent' => $this->configuration->userAgent,
-            'X-ExactOnline-Client' => $this->configuration->clientId,
+            'X-ExactOnline-Client' => $this->configuration->clientId(),
             'Prefer' => 'return=representation',
         ], $headers);
 
@@ -183,7 +191,7 @@ use Psr\Log\LoggerInterface;
             );
         }
 
-        $uri = $this->uriFactory->createUri($this->generateTokenAccessUrl());
+        $uri = $this->uriFactory->createUri($this->connectionFactory->generateTokenAccessUrl());
         $request =
             $this->configuration->addRequestTokenData(
                 $this->createRequest($uri, HttpMethod::POST)
@@ -223,8 +231,8 @@ use Psr\Log\LoggerInterface;
         $expires = time() + (int)$content['expires_in'];
         $refresh = $content['refresh_token'];
 
-        $this->configuration->setAccessToken($token, $expires);
-        $this->configuration->setRefreshToken($refresh);
+        $this->configuration->setOrganizationAccessToken($token, $expires);
+        $this->configuration->setOrganizationRefreshToken($refresh);
 
         $this->configuration->save();
 
@@ -285,7 +293,7 @@ use Psr\Log\LoggerInterface;
         $this->rateLimits->updateFromResponse($response);
     }
 
-    public function getRateLimits() : ExactRateLimits
+    public function getRateLimits(): ExactRateLimits
     {
         return $this->rateLimits ??= ExactRateLimits::createFromLimits($this, 0, 0);
     }
@@ -337,28 +345,5 @@ use Psr\Log\LoggerInterface;
                 )
             );
         }
-    }
-
-    final public function getDataSourceMetaData(DataSource|string $source) : DataSourceMeta
-    {
-        if ($source instanceof DataSource) {
-            $source = $source::class;
-        }
-        return $this->objectAttributeCache[$source] ??= (function() use ($source) {
-
-            $item = $this->cache->getItem($source. '::datasourcemeta');
-            if ($item->isHit()) {
-                return unserialize($s, ['allowed_classes' => [
-                    DataSourceMeta::class,
-                    ... EdmRegistry::EDM_CLASSES
-                ]]);
-            }
-
-            $meta = DataSourceMeta::createFromClass($source);
-            $item->set(serialize($meta));
-            $item->expiresAfter(60*60*24*7);
-            $this->cache->save($item);
-            return $meta;
-        })();
     }
 }

@@ -14,12 +14,8 @@ class CredentialsSaveEvent extends AbstractConfiguredExactEvent
 
     public function __construct(
         Exact $exact,
-        public readonly string  $clientId,
-        public readonly string  $redirectUri,
         #[\SensitiveParameter]
-        public readonly string $clientSecret,
-        #[\SensitiveParameter]
-        public string          $authorizationCode,
+        public ?string          $authorizationCode = null,
         #[\SensitiveParameter]
         public ?string         $accessToken = null,
         #[\SensitiveParameter]

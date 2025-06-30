@@ -4,8 +4,7 @@ namespace PISystems\ExactOnline\Polyfill;
 
 use Psr\Http\Message\StreamInterface;
 
-class SimpleStream implements StreamInterface
-{
+class SimpleStream implements StreamInterface {
     private ?int $length = null;
     private int $position = 0;
     private array $meta = [];
@@ -16,6 +15,14 @@ class SimpleStream implements StreamInterface
     )
     {
 
+    }
+
+    public function reset() : int
+    {
+        $s = strlen($this->body);
+        $this->body = 0;
+        $this->position = 0;
+        return $s;
     }
 
     public function setMetaData(string $key, mixed $value): static

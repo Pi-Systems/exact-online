@@ -10,7 +10,6 @@ use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\ExactEnvironment;
 use PISystems\ExactOnline\Model\FilterInterface;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
-use Psr\Http\Message\UriInterface;
 
 /**
  * Feel free to extend this class to add your own helpers.
@@ -18,18 +17,6 @@ use Psr\Http\Message\UriInterface;
  */
 class Exact extends ExactEnvironment
 {
-    private ?UriInterface $tokenUri = null;
-
-    public function generateTokenAccessUrl(): UriInterface
-    {
-        return $this->tokenUri ??= $this->uriFactory->createUri(sprintf(
-            "%s://%s%s",
-            ExactConnectionFactory::CONN_API_PROTOCOL,
-            ExactConnectionFactory::CONN_API_DOMAIN,
-            ExactConnectionFactory::CONN_API_TOKEN_PATH
-        ));
-    }
-
     /**
      * Simple alias to loadAdministrationData
      *
@@ -38,6 +25,16 @@ class Exact extends ExactEnvironment
     public function getAdministration() : int
     {
         return $this->loadAdministrationData();
+    }
+
+    /**
+     * Alias to getAdministration, as exact only uses 'division'.
+     * Which, imo, is a dumb way to describe it.
+     * @return int
+     */
+    public function getDivision() : int
+    {
+        return $this->getAdministration();
     }
 
     /**
@@ -77,7 +74,7 @@ class Exact extends ExactEnvironment
             throw new \InvalidArgumentException(sprintf('Class "%s" is not a valid DataSource', $class));
         }
 
-        $meta = $this->getDataSourceMetaData($class);
+        $meta = $class::meta();
 
         if ($filter instanceof FilterInterface) {
             $filter = $filter->getFilter($class);
@@ -165,7 +162,7 @@ class Exact extends ExactEnvironment
      */
     public function create(DataSource $object): DataSource
     {
-        $meta = $this->getDataSourceMetaData($object);
+        $meta = $object::meta();
         if (!$meta->supports(HttpMethod::POST)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::POST);
         }
@@ -200,7 +197,7 @@ class Exact extends ExactEnvironment
      */
     public function update(DataSource $object): DataSource
     {
-        $meta = $this->getDataSourceMetaData($object);
+        $meta = $object::meta();
         if (!$meta->supports(HttpMethod::PUT)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::PUT);
         }
@@ -235,7 +232,7 @@ class Exact extends ExactEnvironment
 
     public function delete(DataSource $object): bool
     {
-        $meta = $this->getDataSourceMetaData($object);
+        $meta = $object::meta();
         if (!$meta->supports(HttpMethod::DELETE)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::DELETE);
         }

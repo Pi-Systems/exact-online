@@ -2,27 +2,25 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use PISystems\ExactOnline\Enum\CredentialsType;
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\Events\AdministrationChange;
-use PISystems\ExactOnline\ExactConnectionFactory;
+use PISystems\ExactOnline\Events\CredentialsChange;
+use PISystems\ExactOnline\Events\DivisionChange;
+use PISystems\ExactOnline\Events\RateLimitReached;
+use PISystems\ExactOnline\Events\RefreshCredentials;
+use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Exceptions\ExactCommunicationError;
 use PISystems\ExactOnline\Exceptions\ExactEmptyResponseError;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\ExactResponseNOKError;
+use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
 use PISystems\ExactOnline\Model\Exact as Model;
-use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\FormStream;
-use PISystems\ExactOnline\Polyfill\SimpleArrayLogger;
-use PISystems\ExactOnline\Polyfill\SimpleFileCache;
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Client\ClientExceptionInterface;
-use Psr\Http\Client\ClientInterface;
-use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UriFactoryInterface;
 use Psr\Http\Message\UriInterface;
 use Psr\Log\LoggerInterface;
 
@@ -33,77 +31,56 @@ abstract class ExactEnvironment /*permits Exact*/
 
     public bool $treatEmptyAsError = true;
     private ?ExactRateLimits $rateLimits = null;
-    public  readonly CacheItemPoolInterface $cache;
-    public readonly ExactEventDispatcher $dispatcher;
+    public readonly CacheItemPoolInterface $cache;
     public readonly LoggerInterface $logger;
 
-    public function __construct(
-        public ?int                                $administration = null {
-            get => $this->administration;
-            set {
-                if ($value !== $this->administration) {
-                    $administrationSwitchEvent = new AdministrationChange($this, $this->administration, $value);
-                    $this->dispatcher->dispatch($administrationSwitchEvent);
-                    if ($administrationSwitchEvent->isPropagationStopped()) {
-                        return;
-                    }
+    public ?int $division = null {
+        get => $this->configuration->division;
+        set {
+            if ($value !== $this->configuration->division) {
+                $administrationSwitchEvent = new DivisionChange($this, $this->division, $value);
+                $this->manager->dispatcher->dispatch($administrationSwitchEvent);
+                if ($administrationSwitchEvent->isPropagationStopped()) {
+                    return;
                 }
-                $this->administration = $value;
             }
-        },
-        private readonly ExactRuntimeConfiguration $configuration,
-        protected RequestFactoryInterface          $requestFactory,
-        protected UriFactoryInterface              $uriFactory,
-        protected ClientInterface                  $client,
-        protected ExactConnectionFactory           $connectionFactory,
-        ?LoggerInterface                           $logger = null,
-        ?EventDispatcherInterface                  $dispatcher = null,
+            $this->configuration->division = $value;
+        }
+    }
+
+    final public function __construct(
         #[\SensitiveParameter]
-        ?CacheItemPoolInterface                    $cache = null
+        private readonly ExactRuntimeConfiguration $configuration,
+        protected ExactConnectionManager           $manager,
     )
     {
-        $this->cache = $cache ?? new SimpleFileCache(__DIR__ . '/../Resources/ExactOnline', 'default');
-        $this->dispatcher = $dispatcher
-            ? new ExactEventDispatcher()
-            : new ExactWrappedEventDispatcher($this->dispatcher);
-
-        $this->logger = $logger ?? new SimpleArrayLogger();
-
-        // Not even sure how the second test could ever not be true...
-        // Reflection shenanigans, probably.
-        if (null !== $this->configuration->exact && $this->configuration->exact !== $this) {
-            throw new \LogicException('Refusing to attach the supplied configuration to this Exact instance, it is already coupled.');
-        }
-
-        ExactMetaDataFactory::$cache ??= $this->cache;
-
-        $this->configuration->exact = $this;
-        $this->configuration->dispatcher = $this->dispatcher;
-        $this->dispatcher->lock();
     }
 
     final protected function loadAdministrationData(): int
     {
-        if ($this->administration) {
-            return $this->administration;
+        if ($this->configuration->division) {
+            return $this->configuration->division;
         }
 
         $meta = Model\System\Me::meta();
-        $uri = $this->uriFactory->createUri(
-            $this->connectionFactory->pageUri($meta->endpoint . '?$select=CurrentDivision')
+        $uri = $this->manager->uriFactory->createUri(
+            $this->manager->apiBaseUri()
+                ->withPath($meta->endpoint)
+                ->withQuery('$select=CurrentDivision')
         );
+
         $request = $this->createRequest($uri);
         $response = $this->sendAuthenticatedRequest($request);
         $data = $this->decodeJsonRequestResponse($request, $response);
 
         $me = new Model\System\Me();
-        $meta->hydrate($me, $data);
+        $meta->hydrate($me, reset($data));
 
         if (!$me->CurrentDivision) {
             throw new ExactResponseError('Unable to determine current division.', $request, $response);
         }
 
-        return $this->administration = (int)$me->CurrentDivision;
+        return $this->division = (int)$me->CurrentDivision;
     }
 
     final protected function createRequest(
@@ -124,7 +101,7 @@ abstract class ExactEnvironment /*permits Exact*/
 
         // Ensure we update the division/administration path.
         if (str_contains($uri->getPath(), '{division}')) {
-            $uri = $uri->withPath(str_replace('{division}', $this->administration, $uri->getPath()));
+            $uri = $uri->withPath(str_replace('{division}', $this->division, $uri->getPath()));
         }
 
 
@@ -133,26 +110,27 @@ abstract class ExactEnvironment /*permits Exact*/
             throw new \InvalidArgumentException('GET requests cannot have a body.');
         }
 
-        if (array_is_list($headers)) {
+
+        if (!empty($headers) && array_is_list($headers)) {
             throw new \InvalidArgumentException('Headers must be an associative array');
         }
 
-        $request = $this->requestFactory->createRequest(
+        $request = $this->manager->requestFactory->createRequest(
             $method->value,
             $uri
         );
 
+        $body ??= $request->getBody();
         if ($body) {
-            $request = $request->withBody($body);
-            if ($body instanceof FormStream) {
-                $request = $request
-                    ->withHeader('Content-Type', 'application/x-www-form-urlencoded');
+            if ($body instanceof RequestAwareStreamInterface) {
+                $request = $body->configureRequest($request);
             }
+            $request = $request->withBody($body);
         }
 
         $headers = array_merge([
             'Accept' => 'application/json',
-            'User-Agent' => $this->configuration->userAgent,
+            'User-Agent' => ExactConnectionManager::USER_AGENT,
             'X-ExactOnline-Client' => $this->configuration->clientId(),
             'Prefer' => 'return=representation',
         ], $headers);
@@ -178,30 +156,49 @@ abstract class ExactEnvironment /*permits Exact*/
         );
     }
 
-    final protected function configureAccessToken(): void
+    final public function configureAccessToken(): void
     {
         if ($this->configuration->hasValidAccessToken()) {
             // Nothing to configure, available token is already valid.
             return;
         }
 
-        if (!$this->configuration->allowSave) {
-            throw new \LogicException(
-                'Obtaining a new access token is not allowed when allowSave is false.'
-            );
-        }
-
-        $uri = $this->uriFactory->createUri($this->connectionFactory->generateTokenAccessUrl());
+        $uri = $this->manager->uriFactory->createUri($this->manager->generateTokenAccessUrl());
         $request =
             $this->configuration->addRequestTokenData(
-                $this->createRequest($uri, HttpMethod::POST)
+            // Note to self: new FormStream is not optional.
+            // CreateRequest checks for instanceof RequestAwareStreamInterface
+                $this->createRequest($uri, HttpMethod::POST, new FormStream())
             );
 
-        $response = $this->sendRequest($request);
 
+        $now = time();
+        $response = $this->sendRequest($request);
         $content = $this->decodeJsonRequestResponse($request, $response);
 
         $requirements = ['access_token', 'expires_in', 'refresh_token'];
+
+        if (isset($content['error'])) {
+            if (isset($content['error_description'])) {
+                throw new ExactCommunicationError(
+                    $this,
+                    new ExactResponseError(
+                        sprintf('[%s] %s', $content['error'], $content['error_description']),
+                        $request,
+                        $response
+                    )
+                );
+
+            }
+            throw new ExactCommunicationError(
+                $this,
+                new ExactResponseError(
+                    $content['error'],
+                    $request,
+                    $response
+                )
+            );
+        }
 
         foreach ($requirements as $requirement) {
             if (!isset($content[$requirement])) {
@@ -228,13 +225,68 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         $token = $content['access_token'];
-        $expires = time() + (int)$content['expires_in'];
+        $expires = \DateTimeImmutable::createFromTimestamp($now + (int)$content['expires_in']);
         $refresh = $content['refresh_token'];
 
-        $this->configuration->setOrganizationAccessToken($token, $expires);
-        $this->configuration->setOrganizationRefreshToken($refresh);
+        $this->setOrganizationAccessToken($token, $expires);
+        $this->setOrganizationRefreshToken($refresh);
 
-        $this->configuration->save();
+        $this->saveConfiguration();
+
+    }
+
+    final public function setOrganizationAccessToken(string $accessToken, \DateTimeInterface $expires): static
+    {
+        $e = new RefreshCredentials($this, CredentialsType::AccessToken);
+        $this->manager->dispatcher->dispatch($e);
+
+        if ($e->isPropagationStopped()) {
+            return $this;
+        }
+
+        $this->configuration->organizationAccessToken = $accessToken;
+
+        // Once an access token has been loaded, it cannot be used again (Expires after 1-2 minutes anyway)
+        // Pointless to store at this point
+        $this->configuration->organizationAuthorizationCode = null;
+        $this->configuration->organizationAccessTokenExpires = $expires;
+
+        return $this;
+    }
+
+    final public function setOrganizationRefreshToken(string $organizationRefreshToken): static
+    {
+        if (!$this->configuration->hasAccessToken()) {
+            // This is a complete lie, we could, but we're not enabling this stupid behavior.
+            throw new \LogicException('Cannot set refresh token without an access token present.');
+        }
+
+        $e = new RefreshCredentials($this, CredentialsType::RefreshToken);
+        $this->manager->dispatcher->dispatch($e);
+
+        if ($e->isPropagationStopped()) {
+            return $this;
+        }
+
+        $this->configuration->organizationRefreshToken = $organizationRefreshToken;
+
+        return $this;
+    }
+
+    final public function saveConfiguration(): bool
+    {
+        $e = new CredentialsChange(
+            $this,
+            $this->configuration
+        );
+
+        $this->manager->dispatcher->dispatch($e);
+
+        if ($e->isPropagationStopped()) {
+            return false;
+        }
+
+        return $e->isSaveSuccess();
 
     }
 
@@ -247,21 +299,20 @@ abstract class ExactEnvironment /*permits Exact*/
 
                 $limitEvent = new RateLimitReached($this, $this->rateLimits);
 
-                $this->dispatcher->dispatch($limitEvent);
+                $this->manager->dispatcher->dispatch($limitEvent);
 
                 // If the event is stopped, we stop caring.
                 // User dealt with it, so...
                 if (!$limitEvent->isPropagationStopped()) {
-                    throw new RateLimitReached(
-                        $this,
-                        $this->rateLimits
-                    );
+                    // Not stopped, it was allowed to cascade, throw as exception
+                    throw new RateLimitReachedException($this, $limitEvent);
                 }
             }
         }
 
         try {
-            $response = $this->client->sendRequest($request);
+            $response = $this->manager->client->sendRequest($request);
+            var_dump($request, $response);
         } catch (ClientExceptionInterface $e) {
             throw new ExactCommunicationError($this, $e);
         }
@@ -289,18 +340,18 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function updateRateLimits(ResponseInterface $response): void
     {
-        $this->getRateLimits();
-        $this->rateLimits->updateFromResponse($response);
+        $this->rateLimits??= ExactRateLimits::createFromResponse($this, $response);
     }
 
-    public function getRateLimits(): ExactRateLimits
+    final public function getRateLimits(): ExactRateLimits
     {
-        return $this->rateLimits ??= ExactRateLimits::createFromLimits($this, 0, 0);
+        return $this->rateLimits ??= ExactRateLimits::createFromLimits($this);
     }
 
     final protected function decodeJsonRequestResponse(
         RequestInterface  $request,
         ResponseInterface $response,
+        bool $raw = false
     ): array
     {
         $body = $response->getBody();
@@ -319,22 +370,8 @@ abstract class ExactEnvironment /*permits Exact*/
         $body->rewind();
 
         $body = $body->getContents();
-
         try {
-            $content = json_decode($body, true);
-
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new ExactCommunicationError(
-                    $this,
-                    new ExactResponseError(
-                        'Unable to decode response body',
-                        $request,
-                        $response
-                    )
-                );
-            }
-
-            return $content;
+            return $this->decodeJson($body, $raw);
         } catch (\Throwable $e) {
             throw new ExactCommunicationError(
                 $this,
@@ -345,5 +382,33 @@ abstract class ExactEnvironment /*permits Exact*/
                 )
             );
         }
+
+    }
+
+    final protected function decodeJson(
+        string $content,
+        bool $raw = false
+    ) : array {
+        $content = json_decode($content, true);
+
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \RuntimeException(
+                'Unable to decode response body',
+            );
+        }
+
+        if ($raw) {
+            return $content;
+        }
+
+        if (isset($content['d'])) {
+            $content = $content['d'];
+        }
+
+        if (isset($content['results'])) {
+            $content = $content['results'];
+        }
+
+        return $content;
     }
 }

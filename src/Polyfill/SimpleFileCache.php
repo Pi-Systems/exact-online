@@ -123,7 +123,6 @@ class SimpleFileCache implements CacheItemPoolInterface
     public function save(CacheItemInterface $item): bool
     {
         $this->schedule[spl_object_id($item)] = $item;
-        $this->commit();
         return true;
     }
 
@@ -136,7 +135,9 @@ class SimpleFileCache implements CacheItemPoolInterface
     public function commit(): bool
     {
         foreach ($this->schedule as $item) {
-            $item->write();
+            if ($item instanceof SimpleFileCacheItem) {
+                $item->write();
+            }
         }
         $this->schedule = [];
 

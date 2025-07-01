@@ -3,6 +3,7 @@
 namespace PISystems\ExactOnline\Events;
 
 use PISystems\ExactOnline\Enum\CredentialsType;
+use PISystems\ExactOnline\Model\ExactEnvironment;
 use PISystems\ExactOnline\Model\ExactEvent;
 use PISystems\ExactOnline\Model\ExactRuntimeConfiguration;
 
@@ -16,7 +17,7 @@ use PISystems\ExactOnline\Model\ExactRuntimeConfiguration;
 class RefreshCredentials extends ExactEvent
 {
     public function __construct(
-        public readonly ExactRuntimeConfiguration $configuration,
+        public readonly ExactEnvironment $environment,
         public readonly CredentialsType           $type,
     )
     {

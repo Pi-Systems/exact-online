@@ -3,8 +3,8 @@
 namespace PISystems\ExactOnline\Model;
 
 use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Exceptions\ExactResponseError;
-use Psr\Http\Message\RequestInterface;
+use PISystems\ExactOnline\Events\RateLimitReached;
+use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
 use Psr\Http\Message\ResponseInterface;
 
 class ExactRateLimits
@@ -30,9 +30,8 @@ class ExactRateLimits
 
     public static function createFromLimits(
         Exact $exact,
-        int   $dailyRateLimit,
-
-        int   $minuteRateLimit,
+        int   $dailyRateLimit = INF,
+        int   $minuteRateLimit = INF,
         int   $dailyResetRate = 1000,
     ): ExactRateLimits
     {
@@ -51,7 +50,7 @@ class ExactRateLimits
         ResponseInterface $response
     ): static
     {
-        $new = self::createFromLimits($exact, 0, 0);
+        $new = self::createFromLimits($exact, INF, INF);
         return $new->updateFromResponse($response);
     }
 
@@ -130,7 +129,10 @@ class ExactRateLimits
         $this->doRefreshCalculations();
 
         if ($this->dailyRemaining) {
-            throw new RateLimitReached($this->exact, $this);
+            throw new RateLimitReachedException(
+                $this->exact,
+                new RateLimitReached($this->exact, $this)
+            );
         }
 
         $this->minuteRateLimit--;

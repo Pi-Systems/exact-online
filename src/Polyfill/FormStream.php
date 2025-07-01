@@ -2,15 +2,19 @@
 
 namespace PISystems\ExactOnline\Polyfill;
 
-class FormStream extends SimpleStream
+use PISystems\ExactOnline\Model\AddableStreamInterface;
+use PISystems\ExactOnline\Model\RequestAwareStreamInterface;
+use Psr\Http\Message\RequestInterface;
+
+class FormStream extends SimpleStream implements AddableStreamInterface, RequestAwareStreamInterface
 {
     public const string CONTENT_TYPE = 'application/x-www-form-urlencoded';
 
     private array $formElements = [];
 
-    public function __construct(array $elements, bool $readonly = false)
+    public function __construct(array $elements = [], bool $readonly = false)
     {
-        if (array_is_list($elements)) {
+        if (!empty($elements) && array_is_list($elements)) {
             throw new \InvalidArgumentException('FormStream expects an associative array');
         }
 
@@ -21,11 +25,18 @@ class FormStream extends SimpleStream
 
     public function add(array $elements): int
     {
+        if ($this->readonly) {
+            throw new \RuntimeException('Stream is read only, refusing to write once constructed.');
+        }
         return $this->write($elements);
     }
 
     public function write(array|string $string): int
     {
+        if ($this->readonly) {
+            throw new \RuntimeException('Stream is read only, refusing to write once constructed.');
+        }
+
         if (is_string($string)) {
             parent::write($string);
         }
@@ -34,5 +45,10 @@ class FormStream extends SimpleStream
 
         $this->reset();
         return parent::write( http_build_query($this->formElements) );
+    }
+
+    public function configureRequest(RequestInterface $request): RequestInterface
+    {
+        return $request->withHeader('Content-Type', self::CONTENT_TYPE);
     }
 }

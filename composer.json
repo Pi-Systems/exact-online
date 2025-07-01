@@ -26,6 +26,7 @@
     }
   },
   "require-dev": {
-    "guzzlehttp/guzzle": "^7.9"
+    "guzzlehttp/guzzle": "^7.9",
+    "symfony/dotenv": "^7.3"
   }
 }

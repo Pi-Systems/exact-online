@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Builder;
 
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\ExactConnectionFactory;
+use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Model\DataSource;
@@ -87,10 +87,10 @@ class Exact extends ExactEnvironment
 
         /** @var DataSource  $class */
 
-        $uri = $this->uriFactory->createUri(sprintf(
+        $uri = $this->manager->uriFactory->createUri(sprintf(
             "%s://%s%s",
-            ExactConnectionFactory::CONN_API_PROTOCOL,
-            ExactConnectionFactory::CONN_API_DOMAIN,
+            ExactConnectionManager::CONN_API_PROTOCOL,
+            ExactConnectionManager::CONN_API_DOMAIN,
             $meta->endpoint
         ));
 
@@ -112,28 +112,6 @@ class Exact extends ExactEnvironment
                 throw new ExactResponseError('Unable to retrieve data from Exact reply.', $request, $response);
             }
 
-            // The data structure is a bit annoying.
-            /* {
-             *      d {
-             *          ?__next: string,
-             *          (
-             *              ?results: [...entries] |
-             *              ...entry
-             *          )
-             *
-             *      }
-             */
-
-            if (isset($data['d'])) {
-                $data = $data['d'];
-            } else {
-                throw new ExactResponseError('Malformed reply from Exact, expecting { d: ... }', $request, $response);
-            }
-
-            if (!isset($data['results'])) {
-                $data = [$data];
-            }
-
             $next = $data['__next'] ?? null;
 
             foreach ($data as $item) {
@@ -146,7 +124,7 @@ class Exact extends ExactEnvironment
             }
 
             if ($next) {
-                $uri = $this->uriFactory->createUri($next);
+                $uri = $this->manager->uriFactory->createUri($next);
             } else {
                 $uri = null;
             }
@@ -168,7 +146,7 @@ class Exact extends ExactEnvironment
         }
 
         $data = $meta->deflate($object, HttpMethod::POST);
-        $uri = $this->uriFactory->createUri($meta->endpoint);
+        $uri = $this->manager->uriFactory->createUri($meta->endpoint);
         $request = $this->createRequest($uri, 'POST', new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
         $data = $this->decodeJsonRequestResponse($request, $response);
@@ -209,10 +187,10 @@ class Exact extends ExactEnvironment
         }
 
         $data = $meta->deflate($object, HttpMethod::PUT);
-        $uri = $this->uriFactory->createUri(sprintf(
+        $uri = $this->manager->uriFactory->createUri(sprintf(
             "%s://%s%s(guid'%s')",
-            ExactConnectionFactory::CONN_API_PROTOCOL,
-            ExactConnectionFactory::CONN_API_DOMAIN,
+            ExactConnectionManager::CONN_API_PROTOCOL,
+            ExactConnectionManager::CONN_API_DOMAIN,
             $meta->endpoint,
             $key
         ));
@@ -243,10 +221,10 @@ class Exact extends ExactEnvironment
             throw new \LogicException('Unable to delete object, no primary key found.');
         }
 
-        $uri = $this->uriFactory->createUri(sprintf(
+        $uri = $this->manager->uriFactory->createUri(sprintf(
             "%s://%s%s(guid'%s')",
-            ExactConnectionFactory::CONN_API_PROTOCOL,
-            ExactConnectionFactory::CONN_API_DOMAIN,
+            ExactConnectionManager::CONN_API_PROTOCOL,
+            ExactConnectionManager::CONN_API_DOMAIN,
             $meta->endpoint,
             $key
         ));

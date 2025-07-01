@@ -19,9 +19,10 @@ class SimpleFileCacheItem implements CacheItemInterface
     private mixed $_content = null;
 
     /**
-     * @param string $key   Warning: Key is truncated at 128 characters
+     * @param string $key Warning: Key is truncated at 128 characters
      * @param string $file
-     * @param int|\DateTimeInterface|null $expiry
+     * @param \DateTimeInterface $expiry
+     * @param bool $ignoreTtl
      */
     protected function __construct(
         public string                           $key {
@@ -51,7 +52,7 @@ class SimpleFileCacheItem implements CacheItemInterface
                 return $this->file;
             }
         },
-        private null|int|\DateTimeInterface $expiry,
+        private \DateTimeInterface $expiry,
         private readonly bool $ignoreTtl
     )
     {
@@ -61,10 +62,14 @@ class SimpleFileCacheItem implements CacheItemInterface
     public static function create(
         string $key,
         string $file,
-        int    $ttl,
+        \DateTimeInterface|int    $ttl,
         bool $ignoreTtl = false
     ): static
     {
+        if (is_int($ttl)) {
+            $ttl = \DateTimeImmutable::createFromTimestamp(time() + $ttl);
+        }
+
         return new static($key, $file, $ttl, $ignoreTtl);
     }
 
@@ -130,7 +135,7 @@ class SimpleFileCacheItem implements CacheItemInterface
 
     public function get(): mixed
     {
-        if (!$this->isHit()) {
+        if (null === $this->readHeader()) {
             return null;
         }
 
@@ -172,21 +177,22 @@ class SimpleFileCacheItem implements CacheItemInterface
 
     public function expiresAt(?\DateTimeInterface $expiration): static
     {
-        $this->expiry = $expiration;
+        $this->expiry = \DateTimeImmutable::createFromInterface($expiration);
         return $this;
     }
 
     public function expiresAfter(\DateInterval|int|null $time): static
     {
-        $expiration = null;
         if ($time instanceof \DateInterval) {
             $expiration = new \DateTimeImmutable();
-            $expiration->add($time);
-        } elseif (null !== $time) {
-            $expiration = time() + $time;
+            $expiration = $expiration->add($time);
+            $this->expiry = $expiration;
+            return $this;
         }
 
-        $this->expiry = $expiration;
+        $expiration = time() + ($time ?? 60*60*24*365);
+
+        $this->expiry = \DateTimeImmutable::createFromTimestamp($expiration);
         return $this;
     }
 }

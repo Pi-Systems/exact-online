@@ -3,124 +3,77 @@
 namespace PISystems\ExactOnline\Model;
 
 use GuzzleHttp\Exception\RequestException;
-use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Enum\CredentialsType;
-use PISystems\ExactOnline\Events\CredentialsSaveEvent;
-use PISystems\ExactOnline\Events\RefreshCredentials;
-use PISystems\ExactOnline\Exceptions\UnauthenticatedError;
-use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\FormStream;
 use Psr\Http\Message\RequestInterface;
 
 class ExactRuntimeConfiguration
 {
-    public const int TOKEN_EXPIRE_SLUSH = 10;
+    /**
+     * @var int This is 30 seconds by Exacts api standards
+     *          Setting this to exactly 30 seconds runs into situation where our or their clocks are slightly out of sync.
+     *          (Or any other silly scenario that might create a time difference)
+     *          At 15 seconds, it is still well within bounds, and has practically no chance of getting a timing error.
+     */
+    public const int TOKEN_EXPIRE_SLUSH = 15;
 
     /**
-     * Do not set manually, this is filled when constructing Exact
-     * @var Exact|null
+     * @param ExactAppConfigurationInterface $exactAppConfiguration
+     * @param int|null $division
+     * @param string|null $organizationAuthorizationCode
+     * @param string|null $organizationAccessToken
+     * @param \DateTimeInterface|null $organizationAccessTokenExpires
+     * @param string|null $organizationRefreshToken
+     *
+     * @internal It is not recommended to initialize this yourself.
+     *           Please use ExactConnectionManager->createRuntimeConfiguration
      */
-    public ?Exact $exact = null {
-        set {
-
-            if (null === $value) {
-                throw new \InvalidArgumentException('Exact may only be null during __construct.');
-            }
-
-            // Could throw 'accessed twice' or something, but that would require effort.
-            if ($this->exact === $value) { return ;}
-
-            if ($this->exact) {
-                throw new \LogicException('Exact instance already set');
-            }
-            $this->exact = $value;
-        }
-        get => $this->exact;
-    }
-
-    public ?ExactEventDispatcher $dispatcher = null {
-        set {
-
-            if (null === $value) {
-                throw new \InvalidArgumentException('Dispatcher may only be null during __construct.');
-            }
-
-            // Could throw 'accessed twice' or something, but that would require effort.
-            if ($this->dispatcher !== $value) { return; }
-
-            if ($this->dispatcher) {
-                throw new \LogicException('Dispatcher already set');
-            }
-
-            $this->dispatcher = $value;
-        }
-        get => $this->dispatcher;
-    }
-
     public function __construct(
         #[\SensitiveParameter]
         private readonly ExactAppConfigurationInterface $exactAppConfiguration,
+        public ?int                                     $division = null,
         #[\SensitiveParameter]
-        private ?string                        $organizationAuthorizationCode = null,
+        public ?string                                 $organizationAuthorizationCode = null,
         #[\SensitiveParameter]
-        private ?string                                 $organizationAccessToken = null,
+        public ?string                                 $organizationAccessToken = null,
         #[\SensitiveParameter]
-        private ?int                                    $organizationAccessTokenExpires = null,
+        public ?\DateTimeInterface                     $organizationAccessTokenExpires = null,
         #[\SensitiveParameter]
-        private ?string                                 $organizationRefreshToken = null,
-        // You're not turning this off once it's been constructing.
-        public readonly bool                            $allowSave = true,
-        // We're also not suddenly, magically going to be something else during runtime.
-        public readonly string                          $userAgent = 'PISystems/ExactOnline',
-        /**
-         * If set, the library will fire off a 'SoftLimitReached' event when the minutely limit
-         * has been hit.
-         * If this event is canceled, the limit is 'ignored' (Aka: We've dealt with the timeout ourselves)
-         * Otherwise, the library will wait for the next minutely reset + 1 second using usleep.
-         *
-         * @var bool
-         */
-        public bool $awaitMinutelyTimeout = true,
+        public ?string                                 $organizationRefreshToken = null,
     )
     {
+        if (str_contains($this->organizationAuthorizationCode, '&')) {
+            throw new \RuntimeException(
+                'Error between chair and monitor, developer did not extract the code from the return url properly. (Likely forgot redirect_uri returns with &state= at the end)'
+            );
+        }
 
+        if (str_contains($this->organizationAuthorizationCode, '%')) {
+            throw new \RuntimeException(
+                'Error between chair and monitor, developer did not extract the code from the return url properly. (There are still encoded elements present in the string, url_decode these.)'
+            );
+        }
     }
 
-    public function clientId() : string
+    public function clientId(): string
     {
         return $this->exactAppConfiguration->clientId();
     }
 
-    public function redirectUri() : string
+    public function redirectUri(): string
     {
         return $this->exactAppConfiguration->redirectUri();
     }
 
-    public function authorize(string $token) : void
-    {
-        $this->organizationAuthorizationCode = $token;
-        $this->save();
-    }
 
-    protected function assertInActiveState(): void
-    {
-        if (!$this->exact) {
-            throw new \LogicException('Exact instance not set');
-        }
-
-        if (!$this->dispatcher) {
-            throw new \LogicException('Dispatcher not set');
-        }
-        if (!$this->dispatcher->isLocked()) {
-            throw new \LogicException('Dispatcher must be locked');
-        }
-    }
-
+    /**
+     * @see https://support.exactonline.com/community/s/knowledge-base#All-All-DNO-Content-oauth-eol-oauth-devstep3
+     *
+     * @param RequestInterface $request
+     * @return RequestInterface
+     */
     public function addRequestTokenData(RequestInterface $request): RequestInterface
     {
-        $this->assertInActiveState();
-
-        if ($this->organizationRefreshToken) {
+        if (!empty($this->organizationRefreshToken)) {
             $request = $request->withBody(
                 $this->exactAppConfiguration->addClientDetails(
                     new FormStream([
@@ -142,102 +95,54 @@ class ExactRuntimeConfiguration
             );
         }
 
-        return $request->withHeader('Content-Type', FormStream::CONTENT_TYPE);
+        return $request;
     }
 
-    public function addAuthorizationData(RequestInterface $request): RequestInterface {
-        if (!$this->organizationAccessToken) {
-            throw new UnauthenticatedError($this->exact,
-                new RequestException('No access token set', $request)
-            );
+    public function addAuthorizationData(RequestInterface $request): RequestInterface
+    {
+        if (empty($this->organizationAccessToken)) {
+            throw new RequestException('No access token set', $request);
         }
 
         return $request->withHeader('Authorization', 'Bearer ' . $this->organizationAccessToken);
     }
 
-    public function hasAuthorizationData() : bool
+    public function hasAuthorizationData(): bool
     {
-        return null !== $this->organizationAuthorizationCode;
+        return !empty($this->organizationAuthorizationCode);
     }
 
-    public function hasValidAccessToken() : bool
+    /**
+     * Does not check validity, only that it actually exists.
+     * @return bool
+     */
+    public function hasAccessToken(): bool {
+        return !empty($this->organizationAccessToken);
+    }
+
+    /**
+     * Checks if it exists, and checks if it is still valid.
+     * @return bool
+     */
+    public function hasValidAccessToken(): bool
     {
-        if (!$this->organizationAccessToken) {
+        if (!$this->hasAccessToken()) {
             return false;
         }
 
-        if (($this->organizationAccessTokenExpires - self::TOKEN_EXPIRE_SLUSH) < time()) {
+        // Despite possibly still being self::TOKEN_EXPIRE_FLUSH seconds left on the token
+        // We want to refresh the token asap at this point.
+        // This is allowed, and even expected by Exact. (Exact expects refresh <30 seconds before expire.)
+        if (($this->organizationAccessTokenExpires->getTimestamp() - self::TOKEN_EXPIRE_SLUSH) < time()) {
             return false;
         }
 
         return true;
     }
 
-    public function hasRefreshToken() : bool
+    public function hasRefreshToken(): bool
     {
         return null !== $this->organizationRefreshToken;
     }
 
-    public function setOrganizationAccessToken(string $accessToken, int $expires): static
-    {
-        $this->assertInActiveState();
-
-        $e = new RefreshCredentials($this, CredentialsType::AccessToken);
-        $this->dispatcher?->dispatch($e);
-
-        if ($e->isPropagationStopped()) {
-            return $this;
-        }
-
-        $this->organizationAccessToken = $accessToken;
-        $this->organizationAccessTokenExpires = $expires;
-
-        return $this;
-    }
-
-    public function setOrganizationRefreshToken(string $organizationRefreshToken): static
-    {
-        $this->assertInActiveState();
-
-        if (!$this->organizationAccessToken) {
-            throw new \LogicException('Cannot set refresh token without an access token');
-        }
-
-        $e = new RefreshCredentials($this, CredentialsType::RefreshToken);
-        $this->dispatcher->dispatch($e);
-
-        if ($e->isPropagationStopped()) {
-            return $this;
-            }
-
-        $this->organizationRefreshToken = $organizationRefreshToken;
-
-        return $this;
-    }
-
-    public function save(): bool
-    {
-        if (!$this->allowSave) {
-            return false;
-        }
-
-        $this->assertInActiveState();
-
-        $e = new CredentialsSaveEvent(
-            $this->exact,
-            $this->organizationAuthorizationCode,
-            $this->organizationAccessToken,
-            $this->organizationAccessTokenExpires,
-            $this->organizationRefreshToken
-        );
-
-        $this->dispatcher->dispatch($e);
-
-        if ($e->isPropagationStopped()) {
-            return false;
-        }
-
-        return $e->isSaveSuccess();
-
-    }
 }

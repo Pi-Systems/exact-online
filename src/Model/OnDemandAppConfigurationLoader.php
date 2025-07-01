@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Model;
 
-use PISystems\ExactOnline\Polyfill\FormStream;
+use PISystems\ExactOnline\Polyfill\JsonDataStream;
 
 /**
  * Be careful with this information if this is leaked, not only will the app be compromised.
@@ -35,12 +35,12 @@ final class OnDemandAppConfigurationLoader implements ExactAppConfigurationInter
     }
 
     public function addClientDetails(
-        FormStream $form,
-        int $elements = self::CLIENT_ID | self::CLIENT_SECRET | self::CLIENT_REDIRECT_URI
-    ) : FormStream
+        AddableStreamInterface $stream,
+        int            $elements = self::CLIENT_ID | self::CLIENT_SECRET | self::CLIENT_REDIRECT_URI
+    ) : AddableStreamInterface
     {
         $config = $this->config();
-        return $config->addClientDetails($form, $elements);
+        return $config->addClientDetails($stream, $elements);
     }
 
     public function clientId(): string

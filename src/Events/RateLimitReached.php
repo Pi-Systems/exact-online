@@ -1,13 +1,14 @@
 <?php
 
-namespace PISystems\ExactOnline\Model;
+namespace PISystems\ExactOnline\Events;
 
 use JetBrains\PhpStorm\Pure;
 use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Exceptions\ExactException;
+use PISystems\ExactOnline\Model\ExactEvent;
+use PISystems\ExactOnline\Model\ExactRateLimits;
 use Psr\EventDispatcher\StoppableEventInterface;
 
-class RateLimitReached extends ExactException implements StoppableEventInterface
+class RateLimitReached extends ExactEvent implements StoppableEventInterface
 {
     private bool $propagationStopped = false;
 
@@ -23,23 +24,11 @@ class RateLimitReached extends ExactException implements StoppableEventInterface
         $this->propagationStopped = true;
     }
 
-    #[Pure] public function __construct(
+    public function __construct(
         Exact                           $exact,
         public readonly ExactRateLimits $dailyLimits,
     )
     {
-        $message = 'Rate limits reached.';
-        $types = [];
-        if ($this->dailyLimits->isDailyLimited()) {
-            $types[] = 'daily';
-        }
-        if ($this->dailyLimits->isMinutelyLimited()) {
-            $types[] = 'minutely';
-        }
-
-        $message = $message . ' (' . implode(', ', $types) . ')';
-
-        parent::__construct($exact, $message, -1);
     }
 
     public function isPropagationStopped(): bool

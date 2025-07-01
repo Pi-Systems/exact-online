@@ -41,7 +41,7 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
         }
 
         foreach ($this->getListenersForEvent($event) as $listener) {
-            $event = $listener($event);
+            $listener($event);
 
             if ($event->isPropagationStopped()) {
                 return $event;
@@ -59,11 +59,11 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
 
     public function getListenersForEvent(object $event): iterable
     {
-        foreach ($this->listeners[$event::class]??[] as $event => $listeners) {
-            if (is_a($event, $event, true)) {
-                yield from $listeners;
-            }
+        if (!isset($this->listeners[$event::class])) {
+            return [];
         }
+
+        return new \ArrayIterator($this->listeners[$event::class]);
     }
 
     /**
@@ -76,11 +76,12 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
      * If someone wants to extract the credentials, there will always be a way.
      * *Looking at you, \ReflectionProperty*
      *
-     * @return bool
+     * @return static
      */
-    public function lock() : bool
+    public function lock() : static
     {
         $this->locked = true;
+        return $this;
     }
 
     public function isLocked() : bool

@@ -4,7 +4,7 @@ namespace PISystems\ExactOnline\Events;
 
 use PISystems\ExactOnline\Builder\Exact;
 
-class AdministrationChange extends AbstractConfiguredExactEvent
+class DivisionChange extends AbstractConfiguredExactEvent
 {
 
     /**

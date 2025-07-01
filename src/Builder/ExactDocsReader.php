@@ -215,7 +215,7 @@ class ExactDocsReader
 
         $this->writeEntityData();
         $this->buildMeta();
-
+        $this->cache->commit();
         return $count;
     }
 

@@ -17,11 +17,12 @@ class RateLimitReached extends ExactEvent implements StoppableEventInterface
      *
      * Any exceptions due to limit further down the pipeline are your own problem.
      *
-     * @return bool
+     * @return static
      */
-    public function ignore() : bool
+    public function ignore() : static
     {
         $this->propagationStopped = true;
+        return $this;
     }
 
     public function __construct(

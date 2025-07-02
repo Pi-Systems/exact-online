@@ -4,9 +4,9 @@ namespace PISystems\ExactOnline\Model\Traits;
 
 trait PublicPropertySerializeTrait
 {
-    public function jsonSerialize(): string
+    public function jsonSerialize(): array
     {
-        return json_encode($this->__serialize());
+        return $this->__serialize();
     }
 
     public function serialize()
@@ -23,19 +23,11 @@ trait PublicPropertySerializeTrait
 
     public function __serialize(): array
     {
-        $reflect = new \ReflectionClass($this);
-        $properties = $reflect->getProperties(\ReflectionProperty::IS_PUBLIC);
-        $data = [];
-        foreach ($properties as $property) {
-            $data[$property->getName()] = $property->getValue($this);
-        }
-        return $data;
+        return self::meta()->deflate($this);
     }
 
     public function __unserialize(array $data): void
     {
-        foreach ($data as $property => $value) {
-            $this->{$property} = $value;
-        }
+        self::meta()->hydrate($data, $this);
     }
 }

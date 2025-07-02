@@ -11,14 +11,16 @@ class ExactRateLimits
 {
     public \DateTimeImmutable $lastRefresh;
     public \DateTimeImmutable $dailyResetTime;
+    public \DateTimeImmutable $minuteResetTime;
 
     public function __construct(
         public readonly Exact  $exact,
         public int    $dailyRateLimit,
         public int             $dailyRemaining,
-        int|\DateTimeImmutable $dailyResetTime,
         public int             $minuteRateLimit,
         public int             $minuteRemaining,
+        int|\DateTimeImmutable $dailyResetTime = new \DateTimeImmutable(),
+        int|\DateTimeImmutable $minuteResetTime = new \DateTimeImmutable(),
     )
     {
         $this->lastRefresh = new \DateTimeImmutable();
@@ -26,12 +28,16 @@ class ExactRateLimits
         if (is_int($dailyResetTime)) {
             $this->dailyResetTime = \DateTimeImmutable::createFromTimestamp($dailyResetTime);
         }
+
+        if (is_int($minuteResetTime)) {
+            $this->minuteResetTime = \DateTimeImmutable::createFromTimestamp($minuteResetTime);
+        }
     }
 
     public static function createFromLimits(
         Exact $exact,
-        int   $dailyRateLimit = INF,
-        int   $minuteRateLimit = INF,
+        int   $dailyRateLimit = 5000,
+        int   $minuteRateLimit = 60,
         int   $dailyResetRate = 1000,
     ): ExactRateLimits
     {
@@ -50,7 +56,7 @@ class ExactRateLimits
         ResponseInterface $response
     ): static
     {
-        $new = self::createFromLimits($exact, INF, INF);
+        $new = self::createFromLimits($exact);
         return $new->updateFromResponse($response);
     }
 
@@ -64,7 +70,7 @@ class ExactRateLimits
             'X-RateLimit-Reset' => 'dailyResetTime',
             'X-RateLimit-Minutely-Limit' => 'minuteRateLimit',
             'X-RateLimit-Minutely-Remaining' => 'minuteRemaining',
-            'X-RateLimit-Minutely-Reset' => 'minuteResetTime',
+            'X-RateLimit-Minutely-Reset"' => 'minuteResetTime',
         ];
 
         foreach ($required as $header => $property) {
@@ -73,7 +79,14 @@ class ExactRateLimits
             if(empty($val)) {
                 continue;
             }
-            $this->{$property} = (int)$val;
+            if (
+                $property === 'dailyResetTime' ||
+                $property === 'minuteResetTime'
+            ) {
+                $this->{$property} = \DateTimeImmutable::createFromTimestamp((int)$val);
+            } else {
+                $this->{$property} = (int)$val;
+            }
         }
 
         return $this;

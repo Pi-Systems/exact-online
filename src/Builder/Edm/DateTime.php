@@ -36,7 +36,7 @@ class DateTime extends EdmEncodableDataStructure
         return true;
     }
 
-    function encode(mixed $value): string
+    function encode(mixed $value): ?string
     {
         if (!($value instanceof \DateTimeInterface)) {
             if (!is_string($value)) {
@@ -44,6 +44,14 @@ class DateTime extends EdmEncodableDataStructure
             }
             $value = \DateTimeImmutable::createFromFormat(self::ODATA_DATE_FORMAT, $value);
         }
+        if (false === $value) {
+            return null;
+        }
+
+        if (!$value instanceof \DateTimeInterface) {
+            throw new \InvalidArgumentException("Expect input type to be a DateTimeInterface or an object implementing \DateTimeInterface");
+        }
+
         return sprintf('datetime\'%s\'',\DateTimeImmutable::createFromInterface($value)->format(self::ODATA_DATE_FORMAT));
     }
 

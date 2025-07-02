@@ -435,7 +435,7 @@ class ExactDocsReader
 
                 if (!empty($type)) {
                     // Required is based on the method used, so just treat everything as optional until validation.
-                    if (!$required && $local !== 'mixed') {
+                    if ($local !== 'mixed') {
                         $local = 'null|' . $local;
                     }
 
@@ -495,7 +495,7 @@ class ExactDocsReader
                     $attribute .= sprintf('    #[%s]' . PHP_EOL, $entry);
                 }
 
-                $default = $required ? '' : ' = null';
+                $default =' = null';
 
                 $variables[] = str_replace(
                     [

@@ -54,6 +54,21 @@ class ExactRuntimeConfiguration
         }
     }
 
+    /**
+     * Creates a readonly copy that is 'safe' to use in events.
+     * @return ExactOrganizationalConfigurationalData
+     */
+    public function toOrganizationData() : ExactOrganizationalConfigurationalData
+    {
+        return new ExactOrganizationalConfigurationalData(
+            $this->division,
+            $this->organizationAuthorizationCode,
+            $this->organizationAccessToken,
+            $this->organizationAccessTokenExpires,
+            $this->organizationRefreshToken,
+        );
+    }
+
     public function clientId(): string
     {
         return $this->exactAppConfiguration->clientId();

@@ -9,6 +9,7 @@ use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\ExactEnvironment;
 use PISystems\ExactOnline\Model\FilterInterface;
+use PISystems\ExactOnline\Model\SelectionInterface;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
 
 /**
@@ -18,23 +19,13 @@ use PISystems\ExactOnline\Polyfill\JsonDataStream;
 class Exact extends ExactEnvironment
 {
     /**
-     * Simple alias to loadAdministrationData
-     *
-     * @return int
-     */
-    public function getAdministration() : int
-    {
-        return $this->loadAdministrationData();
-    }
-
-    /**
      * Alias to getAdministration, as exact only uses 'division'.
      * Which, imo, is a dumb way to describe it.
      * @return int
      */
     public function getDivision() : int
     {
-        return $this->getAdministration();
+        return $this->loadAdministrationData();
     }
 
     /**
@@ -61,12 +52,14 @@ class Exact extends ExactEnvironment
      * @psalm-template T $entry
      * @param string $class
      * @param string|FilterInterface|null $filter
+     * @param array|string|SelectionInterface|null $selection
      * @return \Generator<T>
      * @template T
      */
     public function matching(
         string $class,
         null|string|FilterInterface $filter = null,
+        null|array|string|SelectionInterface $selection = null,
     ): \Generator
     {
 
@@ -91,11 +84,34 @@ class Exact extends ExactEnvironment
             "%s://%s%s",
             ExactConnectionManager::CONN_API_PROTOCOL,
             ExactConnectionManager::CONN_API_DOMAIN,
-            $meta->endpoint
+            str_replace('{division}', $this->getDivision(),  $meta->endpoint)
         ));
 
+        $query = [];
         if ($filter) {
-            $uri = $uri->withQuery(http_build_query(['$filter' => $filter]));
+            if ($filter instanceof FilterInterface) {
+                $filter = $filter->getFilter($class);
+            }
+            $query[] = '$filter='.$filter;
+
+        }
+
+        if ($selection) {
+            if (is_array($selection)) {
+                $selection = implode(',', $selection);
+            }
+
+            if ($selection instanceof SelectionInterface) {
+                $selection = $selection->getSelection($class);
+            }
+            $query[] = '$select='.$selection;
+        }
+        if (empty($selection)) {
+            $query[] = '$top=1';
+        }
+
+        if (!empty($query)) {
+            $uri = $uri->withQuery(implode('&', $query));
         }
 
         $request = $this->createRequest($uri);
@@ -106,21 +122,14 @@ class Exact extends ExactEnvironment
                 throw new ExactResponseError('Unable to retrieve (any) data from Exact', $request, $response);
             }
 
+            var_dump($response->getBody()->getContents());
             $data = $this->decodeJsonRequestResponse($request, $response);
 
-            if (!$data) {
-                throw new ExactResponseError('Unable to retrieve data from Exact reply.', $request, $response);
-            }
 
             $next = $data['__next'] ?? null;
 
             foreach ($data as $item) {
-
-                $entry = new $class();
-
-                $meta->hydrate($entry, $item);
-
-                yield $entry;
+                yield $meta->hydrate($item);
             }
 
             if ($next) {
@@ -158,12 +167,7 @@ class Exact extends ExactEnvironment
         $data = $data['d'];
 
         $class = $object::class;
-        /** @var DataSource $entry */
-        $entry = new $class();
-
-        $meta->hydrate($entry, $data);
-
-        return $entry;
+        return $meta->hydrate($data);
     }
 
     /**
@@ -203,7 +207,7 @@ class Exact extends ExactEnvironment
         $data = $this->decodeJsonRequestResponse($request, $response);
 
         if ($data['d']) {
-            $meta->hydrate($object, $data['d']);
+            $meta->hydrate($data['d'], $object);
         }
         return $object;
     }

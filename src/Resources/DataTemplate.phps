@@ -5,7 +5,6 @@ namespace {{namespace}};
 use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Builder as Exact;
 use PISystems\ExactOnline\Builder\Edm;
-use PISystems\ExactOnline\Builder\PageSize;
 use PISystems\ExactOnline\Enum\HttpMethod;
 
 /**{{endpointDescriptions}}

@@ -73,8 +73,7 @@ abstract class ExactEnvironment /*permits Exact*/
         $response = $this->sendAuthenticatedRequest($request);
         $data = $this->decodeJsonRequestResponse($request, $response);
 
-        $me = new Model\System\Me();
-        $meta->hydrate($me, reset($data));
+        $me = $meta->hydrate(reset($data));
 
         if (!$me->CurrentDivision) {
             throw new ExactResponseError('Unable to determine current division.', $request, $response);
@@ -273,11 +272,11 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this;
     }
 
-    final public function saveConfiguration(): bool
+    final protected function saveConfiguration(): bool
     {
         $e = new CredentialsChange(
             $this,
-            $this->configuration
+            $this->configuration->toOrganizationData()
         );
 
         $this->manager->dispatcher->dispatch($e);
@@ -312,7 +311,9 @@ abstract class ExactEnvironment /*permits Exact*/
 
         try {
             $response = $this->manager->client->sendRequest($request);
-            var_dump($request, $response);
+
+            print PHP_EOL."---------------". PHP_EOL . PHP_EOL.date('c').PHP_EOL;
+            var_dump($request, $response, $response->getBody()->getContents());
         } catch (ClientExceptionInterface $e) {
             throw new ExactCommunicationError($this, $e);
         }
@@ -391,9 +392,22 @@ abstract class ExactEnvironment /*permits Exact*/
     ) : array {
         $content = json_decode($content, true);
 
+
         if (json_last_error() !== JSON_ERROR_NONE) {
             throw new \RuntimeException(
                 'Unable to decode response body',
+            );
+        }
+
+        if (isset($content['error'])) {
+            if (isset($content['error_description'])) {
+                throw new \RuntimeException(
+                    sprintf('[%s] %s', $content['error'], $content['error_description']),
+                );
+
+            }
+            throw new \RuntimeException(
+                $content['error'],
             );
         }
 

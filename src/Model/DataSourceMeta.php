@@ -11,6 +11,7 @@ use PISystems\ExactOnline\Enum\HttpMethod;
 
 final class DataSourceMeta implements \Serializable
 {
+    public static bool $deflationSkipsNullByDefault = false;
 
     public array $required {
         get {
@@ -84,7 +85,7 @@ final class DataSourceMeta implements \Serializable
         }
         $props['properties'] = $properties;
 
-        return new self( ... array_values($props));
+        return new self(... array_values($props));
     }
 
     public function supports(HttpMethod $httpMethod): bool
@@ -92,7 +93,7 @@ final class DataSourceMeta implements \Serializable
         return in_array($httpMethod, $this->methods, true);
     }
 
-    public function getPrimaryKeyValue(DataSource $object) : ?string
+    public function getPrimaryKeyValue(DataSource $object): ?string
     {
         return $object->{$this->keyColumn} ?? null;
     }
@@ -106,11 +107,23 @@ final class DataSourceMeta implements \Serializable
         ));
     }
 
+    /**
+     * The same object passed in is outputted.
+     * @template T
+     * @psalm-param DataSource|class-string<T> $class
+     * @psalm-return T|DataSource
+     */
     public function hydrate(
-        DataSource $object,
-        array      $data,
-    ): void
+        string|array             $data,
+        null|DataSource $object = null,
+    ): DataSource
     {
+        $object ??= new $this->name();
+
+        if (is_string($data)) {
+            $data = json_decode($data, true);
+        }
+
         foreach ($this->properties as $name => $meta) {
             if (isset($data[$name])) {
 
@@ -121,13 +134,18 @@ final class DataSourceMeta implements \Serializable
                 $object->{$name} = $pData;
             }
         }
+
+        return $object;
     }
 
     public function deflate(
         DataSource $object,
         HttpMethod $httpMethod = HttpMethod::GET,
+        ?bool $skipNull = null,
     ): array
     {
+        $skipNull ??= self::$deflationSkipsNullByDefault;
+
         $data = [];
 
         foreach ($this->properties as $name => $meta) {
@@ -136,13 +154,17 @@ final class DataSourceMeta implements \Serializable
                 continue;
             }
 
-            $edm = $meta['type'];
-            if ($edm instanceof EdmEncodableDataStructure) {
-                $data[$name] = $edm->encode($meta->getValue($object));
+            $value = $object->{$name};
+
+            if (($edm = $meta['type']) instanceof EdmEncodableDataStructure) {
+                $value = $edm->encode($value);
+            }
+
+            if ($skipNull && $value === null) {
                 continue;
             }
 
-            $data[$name] = $object->{$name};
+            $data[$name] = $value;
         }
         return $data;
     }

@@ -13,8 +13,6 @@ use PISystems\ExactOnline\Model\ExactEnvironment;
 use PISystems\ExactOnline\Model\ExactMetaDataLoader;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Model\Expr\ExactVisitor;
-use PISystems\ExactOnline\Model\FilterInterface;
-use PISystems\ExactOnline\Model\SelectionInterface;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
 
 /**
@@ -38,28 +36,32 @@ class Exact extends ExactEnvironment
      * For anything more complex, please use the matching() method.
      *
      * @psalm-template T $entry
-     * @param string $class
+     * @param DataSource|DataSourceMeta|string $source
      * @param string $id
      * @return T
      * @template T
      */
     public function find(
-        string $class,
+        DataSource|DataSourceMeta|string $source,
         string $id,
     ) : DataSource
     {
-
-        $generator = $this->matching($class, sprintf('ID eq guid\'%s\'', $id));
+        $meta = ExactMetaDataLoader::meta($source);
+        // /route(guid'uuid') works as well, but this is just more expressive.
+        $generator = $this->matching(
+            $meta,
+            Criteria::create()->where(
+                Criteria::expr()->eq($source->keyColumn, $id)
+            )
+        );
         return $generator->current();
     }
 
     public function criteriaToUri(
         DataSourceMeta $meta,
-        Criteria $criteria,
+        ?Criteria $criteria = null,
     ) : Uri
     {
-        $visitor = new ExactVisitor();
-
         if (!$meta->supports(HttpMethod::GET)) {
             throw new MethodNotSupported($this, $meta->name, HttpMethod::GET);
         }
@@ -71,67 +73,68 @@ class Exact extends ExactEnvironment
             str_replace('{division}', $this->getDivision(),  $meta->endpoint)
         ));
 
+        if ($criteria) {
+            $visitor = new ExactVisitor();
+            $filter = $visitor->dispatch($criteria->getWhereExpression());
+            if (!empty($filter)) {
+                $query = ['$filter=' . $filter];
+            }
 
-
-        $filter = $visitor->dispatch($criteria->getWhereExpression());
-        if (!empty($filter)) {
-            $query = ['$filter=' . $filter];
-        }
-
-        if (!empty($filter) && !empty($criteria->expansion)) {
-            throw new \LogicException(
-                "Cannot use a \$filter expression while also trying to expand a selection."
-            );
-        }
-
-        $selection = $criteria->selection;
-        if (!empty($selection)) {
-            $selection = implode(',', $selection);
-            $query[] = '$select='.$selection;
-        } else {
-            $query[] = '$top=1';
-        }
-
-        $expand = $criteria->expansion;
-        if (!empty($expand)) {
-            $expand = implode(',', $expand);
-            $query[] = '$expand='.$expand;
-        }
-
-        $orderings = $criteria->orderings();
-        if (!empty($orderings)) {
-            if (count($orderings) > 1) {
-                throw new \RuntimeException(
-                    "Multiple orderings are only supported on oData4+",
+            if (!empty($filter) && !empty($criteria->expansion)) {
+                throw new \LogicException(
+                    "Cannot use a \$filter expression while also trying to expand a selection."
                 );
             }
-            $query[] = sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
-        }
 
-        if ($criteria->inlineCount) {
-            $query[] = '$inlineCount=allpages';
-        }
+            $selection = $criteria->selection;
+            if (!empty($selection)) {
+                $selection = implode(',', $selection);
+                $query[] = '$select=' . $selection;
+            } else {
+                $query[] = '$top=1';
+            }
 
-        if ($criteria->skipToken && $criteria->allowSkipVariable && $criteria->getFirstResult()) {
-            throw new \LogicException(
-            // How would this even work?
-            // Do you skip the amount first, then skip to token possibly missing?
-            // Or do you skip to token, then offset the amount, making it volatile?
-                "Setting both 'skipToken' and 'firstResult' is not supported."
-            );
-        }
+            $expand = $criteria->expansion;
+            if (!empty($expand)) {
+                $expand = implode(',', $expand);
+                $query[] = '$expand=' . $expand;
+            }
 
-        if ($criteria->skipToken) {
-            $query[] = '$skipToken='.$criteria->skipToken;
-        }
+            $orderings = $criteria->orderings();
+            if (!empty($orderings)) {
+                if (count($orderings) > 1) {
+                    throw new \RuntimeException(
+                        "Multiple orderings are only supported on oData4+",
+                    );
+                }
+                $query[] = sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
+            }
 
-        if ($criteria->allowSkipVariable && $criteria->getFirstResult()) {
-            $query[] = '$skip='.$criteria->getFirstResult();
-        }
+            if ($criteria->inlineCount) {
+                $query[] = '$inlineCount=allpages';
+            }
+
+            if ($criteria->skipToken && $criteria->allowSkipVariable && $criteria->getFirstResult()) {
+                throw new \LogicException(
+                // How would this even work?
+                // Do you skip the amount first, then skip to token possibly missing?
+                // Or do you skip to token, then offset the amount, making it volatile?
+                    "Setting both 'skipToken' and 'firstResult' is not supported."
+                );
+            }
+
+            if ($criteria->skipToken) {
+                $query[] = '$skipToken=' . $criteria->skipToken;
+            }
+
+            if ($criteria->allowSkipVariable && $criteria->getFirstResult()) {
+                $query[] = '$skip=' . $criteria->getFirstResult();
+            }
 
 
-        if (!empty($query)) {
-            $uri = $uri->withQuery(implode('&', $query));
+            if (!empty($query)) {
+                $uri = $uri->withQuery(implode('&', $query));
+            }
         }
 
         return $uri;
@@ -140,13 +143,13 @@ class Exact extends ExactEnvironment
     /**
      * @psalm-template T $entry
      * @param DataSource|DataSourceMeta|string $source
-     * @param Criteria $criteria
+     * @param Criteria|null $criteria
      * @return \Generator<T>
      * @template T
      */
     public function matching(
         DataSource|DataSourceMeta|string $source,
-        Criteria                         $criteria,
+        ?Criteria                         $criteria = null,
     ): \Generator
     {
         $meta = ExactMetaDataLoader::meta($source);
@@ -176,6 +179,52 @@ class Exact extends ExactEnvironment
                 $uri = null;
             }
         } while ($uri);
+    }
+
+    public function findOneBy(
+        DataSource|DataSourceMeta|string $source,
+        array|Criteria                         $criteria,
+        bool $orOperation = false
+    )
+    {
+        $meta = ExactMetaDataLoader::meta($source);
+        if (is_array($criteria)) {
+
+            if (array_is_list($criteria)) {
+                throw new \LogicException(
+                    "Array must be an associative array."
+                );
+            }
+
+            $crit = Criteria::create($meta);
+
+            $x = [];
+            foreach ($criteria as $key => $value) {
+                $x[] = Criteria::expr()->eq($key, $value);
+            }
+
+            if ($orOperation) {
+                $crit->where(Criteria::expr()->orX(...$x));
+            } else {
+                $crit->where(Criteria::expr()->andX(...$x));
+            }
+            $criteria = $crit;
+            unset($crit);
+        }
+
+        $criteria->setMaxResults(1);
+
+        $return = null;
+        foreach ($this->matching($meta, $criteria) as $result) {
+            if ($return) {
+                throw new \RuntimeException(
+                    "Expected only one result to be returned from matching()"
+                );
+            }
+            $return = $result;
+        }
+
+        return $return;
     }
 
     public function count(

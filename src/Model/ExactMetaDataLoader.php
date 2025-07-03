@@ -10,8 +10,13 @@ class ExactMetaDataLoader
     private static array $objectAttributeCache = [];
     public static ?CacheItemPoolInterface $cache = null;
 
-    final static public function meta(DataSource|string $source) : DataSourceMeta
+    final static public function meta(DataSourceMeta|DataSource|string $source) : DataSourceMeta
     {
+        // :/
+        if ($source instanceof DataSourceMeta) {
+            return $source;
+        }
+
         if (!self::$cache instanceof CacheItemPoolInterface) {
             trigger_error("No cache attached to ExactMetaDataFactory, this will severely impact performance.", E_USER_NOTICE);
         }
@@ -39,4 +44,6 @@ class ExactMetaDataLoader
             return DataSourceMeta::createFromClass($source);
         })();
     }
+
+
 }

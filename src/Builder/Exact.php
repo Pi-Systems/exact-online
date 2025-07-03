@@ -2,12 +2,17 @@
 
 namespace PISystems\ExactOnline\Builder;
 
+use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Model\DataSource;
+use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\ExactEnvironment;
+use PISystems\ExactOnline\Model\ExactMetaDataLoader;
+use PISystems\ExactOnline\Model\Expr\Criteria;
+use PISystems\ExactOnline\Model\Expr\ExactVisitor;
 use PISystems\ExactOnline\Model\FilterInterface;
 use PISystems\ExactOnline\Model\SelectionInterface;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
@@ -48,37 +53,16 @@ class Exact extends ExactEnvironment
         return $generator->current();
     }
 
-    /**
-     * @psalm-template T $entry
-     * @param string $class
-     * @param string|FilterInterface|null $filter
-     * @param array|string|SelectionInterface|null $selection
-     * @return \Generator<T>
-     * @template T
-     */
-    public function matching(
-        string $class,
-        null|string|FilterInterface $filter = null,
-        null|array|string|SelectionInterface $selection = null,
-    ): \Generator
+    public function criteriaToUri(
+        DataSourceMeta $meta,
+        Criteria $criteria,
+    ) : Uri
     {
-
-        if (!is_a($class, DataSource::class, true)) {
-            throw new \InvalidArgumentException(sprintf('Class "%s" is not a valid DataSource', $class));
-        }
-
-        $meta = $class::meta();
-
-        if ($filter instanceof FilterInterface) {
-            $filter = $filter->getFilter($class);
-        }
+        $visitor = new ExactVisitor();
 
         if (!$meta->supports(HttpMethod::GET)) {
-            throw new MethodNotSupported($this, $class, HttpMethod::GET);
+            throw new MethodNotSupported($this, $meta->name, HttpMethod::GET);
         }
-
-
-        /** @var DataSource  $class */
 
         $uri = $this->manager->uriFactory->createUri(sprintf(
             "%s://%s%s",
@@ -87,33 +71,87 @@ class Exact extends ExactEnvironment
             str_replace('{division}', $this->getDivision(),  $meta->endpoint)
         ));
 
-        $query = [];
-        if ($filter) {
-            if ($filter instanceof FilterInterface) {
-                $filter = $filter->getFilter($class);
-            }
-            $query[] = '$filter='.$filter;
 
+
+        $filter = $visitor->dispatch($criteria->getWhereExpression());
+        if (!empty($filter)) {
+            $query = ['$filter=' . $filter];
         }
 
-        if ($selection) {
-            if (is_array($selection)) {
-                $selection = implode(',', $selection);
-            }
+        if (!empty($filter) && !empty($criteria->expansion)) {
+            throw new \LogicException(
+                "Cannot use a \$filter expression while also trying to expand a selection."
+            );
+        }
 
-            if ($selection instanceof SelectionInterface) {
-                $selection = $selection->getSelection($class);
-            }
+        $selection = $criteria->selection;
+        if (!empty($selection)) {
+            $selection = implode(',', $selection);
             $query[] = '$select='.$selection;
-        }
-        if (empty($selection)) {
+        } else {
             $query[] = '$top=1';
         }
+
+        $expand = $criteria->expansion;
+        if (!empty($expand)) {
+            $expand = implode(',', $expand);
+            $query[] = '$expand='.$expand;
+        }
+
+        $orderings = $criteria->orderings();
+        if (!empty($orderings)) {
+            if (count($orderings) > 1) {
+                throw new \RuntimeException(
+                    "Multiple orderings are only supported on oData4+",
+                );
+            }
+            $query[] = sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
+        }
+
+        if ($criteria->inlineCount) {
+            $query[] = '$inlineCount=allpages';
+        }
+
+        if ($criteria->skipToken && $criteria->allowSkipVariable && $criteria->getFirstResult()) {
+            throw new \LogicException(
+            // How would this even work?
+            // Do you skip the amount first, then skip to token possibly missing?
+            // Or do you skip to token, then offset the amount, making it volatile?
+                "Setting both 'skipToken' and 'firstResult' is not supported."
+            );
+        }
+
+        if ($criteria->skipToken) {
+            $query[] = '$skipToken='.$criteria->skipToken;
+        }
+
+        if ($criteria->allowSkipVariable && $criteria->getFirstResult()) {
+            $query[] = '$skip='.$criteria->getFirstResult();
+        }
+
 
         if (!empty($query)) {
             $uri = $uri->withQuery(implode('&', $query));
         }
 
+        return $uri;
+    }
+
+    /**
+     * @psalm-template T $entry
+     * @param DataSource|DataSourceMeta|string $source
+     * @param Criteria $criteria
+     * @return \Generator<T>
+     * @template T
+     */
+    public function matching(
+        DataSource|DataSourceMeta|string $source,
+        Criteria                         $criteria,
+    ): \Generator
+    {
+        $meta = ExactMetaDataLoader::meta($source);
+
+        $uri = $this->criteriaToUri($meta, $criteria);
         $request = $this->createRequest($uri);
         do {
             $response = $this->sendAuthenticatedRequest($request);
@@ -138,7 +176,29 @@ class Exact extends ExactEnvironment
                 $uri = null;
             }
         } while ($uri);
+    }
 
+    public function count(
+        DataSource|DataSourceMeta|string $source
+    ) : int
+    {
+        $meta = ExactMetaDataLoader::meta($source);
+
+        $uri = $this->criteriaToUri($meta, new Criteria());
+        // :/ And people praise odata? What a load of...
+        $uri = $uri->withPath($uri->getPath() . '$count');
+
+        $request = $this
+            ->createRequest($uri)
+            // Silly enough, we do not want to send a Accept header (Even though it should be text/plain)
+            ->withoutHeader('Accept');
+        $response = $this->sendAuthenticatedRequest($request);
+
+        if ($response->getStatusCode() !== 200) {
+            throw new ExactResponseError('Unable to retrieve (any) data from Exact', $request, $response);
+        }
+
+        return (int)$response->getBody()->getContents();
     }
 
 

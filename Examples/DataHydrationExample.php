@@ -14,7 +14,7 @@ include "SetupExample.php";
 
 // It is not technically required to have a persistent cache attached.
 // Without it, the meta-loaders internal runtime cache will still function.
-// However, it will have to go through all its reflections every time the app is used.
+// It will, however, throw a user notice which will halt dev builds.
 //
 // The cache persistor is set in this example,
 // Note: When using the library, this is done automatically upon construction of the ConnectionManager.

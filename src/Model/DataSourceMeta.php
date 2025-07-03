@@ -88,6 +88,11 @@ final class DataSourceMeta implements \Serializable
         return new self(... array_values($props));
     }
 
+    public function hasProperty(string $propertyName): bool
+    {
+        return array_key_exists($propertyName, $this->properties);
+    }
+
     public function supports(HttpMethod $httpMethod): bool
     {
         return in_array($httpMethod, $this->methods, true);

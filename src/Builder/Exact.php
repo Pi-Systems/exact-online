@@ -123,6 +123,20 @@ class Exact extends ExactEnvironment
                 );
             }
 
+            if ($max = $criteria->getMaxResults()) {
+                if (empty($criteria->selection)) {
+                    throw new \LogicException("Cannot set a max without a selection present.");
+                }
+
+                if ($max < 1) {
+                    throw new \LogicException(
+                        "Cannot have a negative number of selections."
+                    );
+                }
+
+               $query[] = '$top=' . $max;
+            }
+
             if ($criteria->skipToken) {
                 $query[] = '$skipToken=' . $criteria->skipToken;
             }
@@ -135,6 +149,9 @@ class Exact extends ExactEnvironment
             if (!empty($query)) {
                 $uri = $uri->withQuery(implode('&', $query));
             }
+        }
+        if (!$criteria) {
+            $uri = $uri->withQuery('$top=1');
         }
 
         return $uri;

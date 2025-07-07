@@ -47,7 +47,7 @@ class Criteria extends BaseCriteria
         }
     }
 
-    private ?DataSourceMeta $meta = null;
+    private ?DataSourceMeta $meta;
 
     /**
      * Set to true to allow using setFirstResult without crashing out.
@@ -115,6 +115,29 @@ class Criteria extends BaseCriteria
         // However; it is explicitly NOT deprecated here.
         // Make sure to follow $this->allowSkipVariable before reading it out.
         parent::__construct($expression, $orderings, 0, null);
+    }
+
+    /**
+     * This doesn't do much, if empty it is ignored by everything.
+     * If filled, calling it with the wrong meta passed in matching() or any of the find methods will error it out.
+     * @param string|DataSource|DataSourceMeta|null $source
+     * @return $this
+     */
+    public function from(
+        null|string|DataSource|DataSourceMeta $source = null
+    ) : static
+    {
+        $this->meta = ExactMetaDataLoader::meta($source);
+        return $this;
+    }
+
+    public function isFrom(
+        string|DataSource|DataSourceMeta $source
+    ): bool
+    {
+        if (null === $this->meta) { return true; } // This criteria matches everything, so of-course we match
+
+        return ExactMetaDataLoader::meta($source)->name === $this->meta->name;
     }
 
     public static function create(

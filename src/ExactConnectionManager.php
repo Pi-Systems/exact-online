@@ -5,8 +5,9 @@ namespace PISystems\ExactOnline;
 use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Events\BeforeCreate;
 use PISystems\ExactOnline\Events\Created;
+use PISystems\ExactOnline\Model\SeededUuidProvider;
+use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
-use PISystems\ExactOnline\Model\ExactMetaDataLoader;
 use PISystems\ExactOnline\Model\ExactRuntimeConfiguration;
 use PISystems\ExactOnline\Model\ExactWrappedEventDispatcher;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
@@ -34,6 +35,7 @@ class ExactConnectionManager
 
     private \WeakMap $instances;
     public readonly ExactEventDispatcher|ExactWrappedEventDispatcher $dispatcher;
+    public readonly SeededUuidProviderInterface $uuidProvider;
 
     public function __construct(
         public readonly ExactAppConfigurationInterface     $appConfiguration,
@@ -42,7 +44,8 @@ class ExactConnectionManager
         public readonly UriFactoryInterface                $uriFactory,
         public readonly ClientInterface                    $client,
         public readonly LoggerInterface                    $logger,
-        null|EventDispatcherInterface|ExactEventDispatcher $dispatcher = null
+        null|EventDispatcherInterface|ExactEventDispatcher $dispatcher = null,
+        ?SeededUuidProviderInterface                       $uuidProvider = null
     )
     {
         if ($dispatcher instanceof ExactEventDispatcher) {
@@ -51,7 +54,7 @@ class ExactConnectionManager
             $this->dispatcher = new ExactWrappedEventDispatcher($dispatcher);
         }
         $this->instances = new \WeakMap();
-
+        $this->uuidProvider ??= new SeededUuidProvider();
     }
 
     public function createRunTimeConfiguration(

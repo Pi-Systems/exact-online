@@ -171,6 +171,12 @@ class Exact extends ExactEnvironment
     {
         $meta = ExactMetaDataLoader::meta($source);
 
+        if (!$criteria->isFrom($meta)) {
+            throw new \LogicException(
+                "Not a valid criteria for {$source->name}, either use source-less criteria, or ensure the right meta is attached to the criterium."
+            );
+        }
+
         $uri = $this->criteriaToUri($meta, $criteria);
         $request = $this->createRequest($uri);
         do {
@@ -198,6 +204,11 @@ class Exact extends ExactEnvironment
         } while ($uri);
     }
 
+    /**
+     * @template T
+     * @psalm-param DataSource|class-string<T> $source
+     * @psalm-return T|DataSource|null
+     */
     public function findOneBy(
         DataSource|DataSourceMeta|string $source,
         array|Criteria                         $criteria,
@@ -230,6 +241,12 @@ class Exact extends ExactEnvironment
         }
 
         $criteria->setMaxResults(1);
+
+        if (!$criteria->isFrom($meta)) {
+            throw new \LogicException(
+                "Not a valid criteria for {$meta->name}, either use source-less criteria, or ensure the right meta is attached to the criterium."
+            );
+        }
 
         $return = null;
         foreach ($this->matching($meta, $criteria) as $result) {
@@ -365,5 +382,10 @@ class Exact extends ExactEnvironment
             // Intentionally catching 410, we want it deleted, the fact it already was is just w/e at this point.
             [200, 204, 410]
         );
+    }
+
+    public function uuid(?string $seed = null) : string
+    {
+        return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
     }
 }

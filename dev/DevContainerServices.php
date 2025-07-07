@@ -10,6 +10,7 @@ use PISystems\ExactOnline\Events\CredentialsChange;
 use PISystems\ExactOnline\Events\DivisionChange;
 use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Model\DirectExactAppConfiguration;
+use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
 use PISystems\ExactOnline\Model\OnDemandAppConfigurationLoader;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
@@ -175,7 +176,7 @@ return [
                 $item = $manager->cache->getItem('organization_authorization_data');
 
             } catch (InvalidArgumentException $e) {
-                throw new \RuntimeException('Could not read from cache ('.$e->getMessage().')');
+                throw new \RuntimeException('Could not read from cache (' . $e->getMessage() . ')');
             }
             if ($item->isHit()) {
                 $data = unserialize($item->get(), ['allowed_classes' => [\DateTimeImmutable::class]]);
@@ -246,14 +247,14 @@ return [
     // We're only registering commands ending with ExactCommand.php
     // These will always only take ExactConnectionManager as their second option
     // Their name should be part of their own constructor
-    ...(function() {
+    ...(function () {
         // Poor mans auto-registry, no need for anything complex
-        $folder = __DIR__.'/../src/Command';
+        $folder = __DIR__ . '/../src/Command';
 
         $commands = [];
-        foreach (glob($folder.'/*Command.php') as $file) {
+        foreach (glob($folder . '/*Command.php') as $file) {
             $name = basename($file);
-            $class = 'PISystems\\ExactOnline\\Command\\'. substr($name, 0, -4); // - .php
+            $class = 'PISystems\\ExactOnline\\Command\\' . substr($name, 0, -4); // - .php
 
             $commands[$class] = [10, fn(Exact $manager) => new $class($manager), null, [
                 'args' => [Exact::class],
@@ -264,8 +265,7 @@ return [
     })(),
     BuildCommand::class => [
         10,
-        fn(
-        ) => new BuildCommand(),
+        fn() => new BuildCommand(),
         null,
         [
             'args' => [

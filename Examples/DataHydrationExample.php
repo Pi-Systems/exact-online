@@ -4,8 +4,6 @@ namespace PISystems;
 
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Model\Exact\System\Me;
-use PISystems\ExactOnline\Model\ExactMetaDataLoader;
-use PISystems\ExactOnline\Polyfill\SimpleFileCache;
 
 /**
  * PSR Autoloading, DotEnv loading and basic sanity checking
@@ -18,8 +16,6 @@ include "SetupExample.php";
 //
 // The cache persistor is set in this example,
 // Note: When using the library, this is done automatically upon construction of the ConnectionManager.
-$cache = new SimpleFileCache(sys_get_temp_dir() . '/exact-online-cache');
-ExactMetaDataLoader::$cache = $cache;
 $meta = Me::meta();
 // An slightly modified reply from exact ($UserID is not part of the usual CurrentDivision call)
 // Normally speaking, the data retrieved is already parsed to leave only the 'result'.

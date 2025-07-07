@@ -22,7 +22,7 @@ use PISystems\ExactOnline\Polyfill\JsonDataStream;
 class Exact extends ExactEnvironment
 {
     /**
-     * Alias to getAdministration, as exact only uses 'division'.
+     * Alias to loadAdministrationData, as exact only uses 'division'.
      * Which, imo, is a dumb way to describe it.
      * @return int
      */

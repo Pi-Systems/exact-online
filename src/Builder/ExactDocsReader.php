@@ -13,6 +13,8 @@ use Psr\Log\LoggerInterface;
 
 class ExactDocsReader
 {
+    const string EXACT_META_CACHE = __DIR__.'/../Model/Exact/ExactMeta.json';
+
     const int PAGE_SIZE_DEFAULT = 60;
     const int PAGE_SIZE_SYNC_AND_BULK = 1000;
 
@@ -214,7 +216,8 @@ class ExactDocsReader
         }
 
         $this->writeEntityData();
-        $this->buildMeta();
+        $metas = $this->buildMeta();
+        file_put_contents(self::EXACT_META_CACHE, json_encode($metas), JSON_PRETTY_PRINT);
         $this->cache->commit();
         return $count;
     }
@@ -539,24 +542,17 @@ class ExactDocsReader
      * Technically not needed to do, as the ExactEnvironment::getDataSourceMetaData does the same.
      * However. this does catch any real issues with all the above code if this goes wrong.
      * And speeds up initial runtime drastically.
-     *
-     * @throws InvalidArgumentException
      */
 
-    protected function buildMeta() : void
+    protected function buildMeta() : array
     {
         $this->logger->info('Constructing meta data.');
 
         $metas = [];
         foreach ($this->entityParseQueue as [,,,$class]) {
-            $item = $this->cache->getItem($class . '::datasourcemeta');
             $meta = DataSourceMeta::createFromClass($class);
-            $s = serialize($meta);
-            $item->set($s);
-
-            $item->expiresAfter(60 * 60 * 24 * 7);
-            $this->cache->save($item);
-            $metas[$class] = $s;
+            $metas[$class] = $meta;
         }
+        return $metas;
     }
 }

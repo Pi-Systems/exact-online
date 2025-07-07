@@ -52,11 +52,6 @@ class ExactConnectionManager
         }
         $this->instances = new \WeakMap();
 
-        // Ensure we can call DataSource::meta() on any DataSource without triggering the cache notice.
-        // But do not overwrite if a cache is already present
-        if (!ExactMetaDataLoader::$cache instanceof CacheItemPoolInterface) {
-            ExactMetaDataLoader::$cache = $this->cache;
-        }
     }
 
     public function createRunTimeConfiguration(
@@ -177,6 +172,7 @@ class ExactConnectionManager
 
             if (
                 !$configuration->hasValidAccessToken() &&
+                !$configuration->hasAuthorizationData() &&
                 (!$configuration->hasAccessToken() && !$configuration->hasRefreshToken())
             ) {
                 throw new \RuntimeException(

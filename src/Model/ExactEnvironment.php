@@ -2,6 +2,7 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Enum\CredentialsType;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Events\CredentialsChange;
@@ -155,6 +156,44 @@ abstract class ExactEnvironment /*permits Exact*/
         );
     }
 
+    final public function isAuthorized(): bool {
+        $configuration = $this->configuration;
+        /**
+         * Before creating an Exact instance, we can check if we are even capable of using it.
+         * The configuration itself can figure this out on its own (Provided persisting was configured properly).
+         *
+         * Note: It is not required to have all the data ready at this point.
+         *       One may leverage the BeforeCreate event and enter the data at that point.
+         *       If the event is properly handled, one could just remove these if statements entirely.
+         *
+         * Check if we have an active access token (Exact is ready to go, no need to do anything)
+         */
+        return (
+            $configuration->hasValidAccessToken() ||
+            /**
+             * The valid access token does not check for the availability of a refresh token.
+             * So the token may be invalid, but with a refresh token the library can easily get a new access code.
+             */
+            ($configuration->hasAccessToken() || $configuration->hasRefreshToken()) ||
+            /**
+             * No valid access token, no refresh code.
+             * Do we have an authorizationCode?
+             *
+             * If so, it likely means the below uri was followed and the code was extracted.
+             * If not, exit out while supplying the link needed to fix this.
+             */
+            $configuration->hasAuthorizationData()
+        );
+    }
+
+    final public function oAuthUri(): UriInterface {
+        return $this->manager->generateOAuthUri(
+            $this->configuration->clientId(),
+            $this->configuration->redirectUri()
+        );
+    }
+
+
     final public function configureAccessToken(): void
     {
         if ($this->configuration->hasValidAccessToken()) {
@@ -232,6 +271,14 @@ abstract class ExactEnvironment /*permits Exact*/
 
         $this->saveConfiguration();
 
+    }
+
+    final public function setOrganizationAuthorizationCode(
+        string $code
+    ): static
+    {
+        $this->configuration->organizationAuthorizationCode = $code;
+        return $this;
     }
 
     final public function setOrganizationAccessToken(string $accessToken, \DateTimeInterface $expires): static

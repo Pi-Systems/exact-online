@@ -551,7 +551,7 @@ class ExactDocsReader
         $metas = [];
         foreach ($this->entityParseQueue as [,,,$class]) {
             $meta = DataSourceMeta::createFromClass($class);
-            $metas[$class] = $meta;
+            $metas[$class] = serialize($meta);
         }
         return $metas;
     }

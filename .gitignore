@@ -10,5 +10,5 @@
 ###> ExactOnline ###
 /src/Model/Exact
 /src/Resources/ExactDocumentationCache
-/Examples/.env.local
+/dev/.env.local
 ###< ExactOnline ###

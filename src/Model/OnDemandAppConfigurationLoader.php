@@ -18,7 +18,7 @@ final class OnDemandAppConfigurationLoader implements ExactAppConfigurationInter
      */
     public function __construct(
         #[\SensitiveParameter]
-        private \Closure $handler
+        private readonly \Closure $handler
     ) {}
 
     protected function config() : DirectExactAppConfiguration

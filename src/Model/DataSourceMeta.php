@@ -33,18 +33,6 @@ final class DataSourceMeta implements \Serializable
     {
     }
 
-    public static function createFromArray(array $meta) : self
-    {
-        return new self(
-            $meta['name'],
-            $meta['keyColumn'],
-            $meta['pageSize'],
-            $meta['endpoint'],
-            $meta['methods'],
-            $meta['properties'],
-        );
-    }
-
     public static function createFromClass(string $name): self
     {
         $props = ['name' => $name, 'key' => 'ID', 'pageSize' => 60, 'endpoint' => 'NotSet', 'methods' => [], 'properties' => [], 'required' => []];

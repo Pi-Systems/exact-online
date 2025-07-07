@@ -170,16 +170,6 @@ class ExactConnectionManager
                 throw new \RuntimeException("BeforeCreate event was stopped.");
             }
 
-            if (
-                !$configuration->hasValidAccessToken() &&
-                !$configuration->hasAuthorizationData() &&
-                (!$configuration->hasAccessToken() && !$configuration->hasRefreshToken())
-            ) {
-                throw new \RuntimeException(
-                    'Cannot instantiate a un-authorized exact environment, please supply at least the authorization data. (See oAuth implementation).'
-                );
-            }
-
             $exact = new Exact(
                 configuration: $configuration,
                 manager: $this,

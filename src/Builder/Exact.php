@@ -180,7 +180,7 @@ class Exact extends ExactEnvironment
                 throw new ExactResponseError('Unable to retrieve (any) data from Exact', $request, $response);
             }
 
-            var_dump($response->getBody()->getContents());
+//            var_dump($response->getBody()->getContents());
             $data = $this->decodeJsonRequestResponse($request, $response);
 
 

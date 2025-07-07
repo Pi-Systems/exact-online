@@ -2,6 +2,7 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use PISystems\ExactOnline\Builder\EdmRegistry;
 use PISystems\ExactOnline\Builder\ExactDocsReader;
 
 class ExactMetaDataLoader
@@ -9,7 +10,7 @@ class ExactMetaDataLoader
     private static ?array $metaCache = null;
     private static array $objectMetaCache = [];
 
-    final static public function meta(DataSourceMeta|DataSource|string $source) : DataSourceMeta
+    final static public function meta(DataSourceMeta|DataSource|string $source): DataSourceMeta
     {
         // :/
         if ($source instanceof DataSourceMeta) {
@@ -23,7 +24,11 @@ class ExactMetaDataLoader
         self::$metaCache ??= json_decode(file_get_contents(ExactDocsReader::EXACT_META_CACHE), true);
 
         if (self::$metaCache && array_key_exists($source, self::$metaCache)) {
-            return self::$objectMetaCache[$source] ??= DataSourceMeta::createFromArray(self::$metaCache[$source]);
+            return self::$objectMetaCache[$source] ??=
+                unserialize(self::$metaCache[$source], ['allowed_classes' => [
+                    DataSourceMeta::class,
+                    ... EdmRegistry::EDM_CLASSES
+                ]]);
         }
 
         return self::$metaCache[$source] ??= DataSourceMeta::createFromClass($source);

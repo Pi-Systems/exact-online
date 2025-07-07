@@ -1,0 +1,43 @@
+#!/usr/bin/php8.4
+<?php
+
+namespace PISystems;
+
+use PISystems\ExactOnline\Builder\DevContainer;
+use Symfony\Component\Console\Application;
+use Symfony\Component\Dotenv\Dotenv;
+
+include __DIR__ . "/../vendor/autoload.php";
+
+
+/**
+ * There is nothing user configurable in this file, this is merely the bootstrap file for the example files.
+ */
+
+
+if (!class_exists(Dotenv::class)) {
+    throw new \RuntimeException(
+        "This example requires the 'DotEnv' library (Symfony/DotEnv) to be present, please install the dev env libraries."
+    );
+}
+
+$dotenv = new Dotenv();
+$dotenv->loadEnv(__DIR__ . '/.env');
+
+if (!preg_match('/\w+_?test|dev/', $_ENV['APP_ENV'])) {
+    throw new \RuntimeException('Refusing to run example in any non test/dev environment.');
+}
+
+
+$container = new DevContainer();
+$container->subscribe(
+    require "DevContainerServices.php"
+);
+
+$commands = $container->getServicesByTag('console.command');
+
+$app = new Application('exact-online', '0.1');
+foreach ($commands as $id) {
+    $app->add($container->get($id));
+}
+$app->run();

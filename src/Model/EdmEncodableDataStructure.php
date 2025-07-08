@@ -8,9 +8,9 @@ abstract class EdmEncodableDataStructure extends EDMDataStructure
      * Before encoding the output, run through this first.
      *
      * @param mixed $value
-     * @return bool|string|int|float|null
+     * @return array|bool|string|int|float|null
      */
-    public function encode(mixed $value): bool|string|int|float|null
+    public function encode(mixed $value): array|bool|string|int|float|null
     {
         return (string)$value;
     }
@@ -21,7 +21,7 @@ abstract class EdmEncodableDataStructure extends EDMDataStructure
      * @return bool|string|int|float
      */
     #[\ReturnTypeWillChange]
-    public function decode(bool|string|int|float|null $value): mixed
+    public function decode(array|bool|string|int|float|null $value): mixed
     {
         return $value;
     }

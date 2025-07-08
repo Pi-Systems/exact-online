@@ -36,7 +36,7 @@ class Binary extends EdmEncodableDataStructure
         return 'X\''.pack('H*', $value).'\'';
     }
 
-    public function decode(mixed $value): bool|string|int|float|null
+    public function decode(mixed $value): mixed
     {
         $result = unpack('H*', substr($value, 2, -1));
 

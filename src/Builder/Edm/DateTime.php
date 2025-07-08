@@ -59,7 +59,7 @@ class DateTime extends EdmEncodableDataStructure
         return sprintf('datetime\'%s\'',\DateTimeImmutable::createFromInterface($value)->format(self::ODATA_DATE_FORMAT));
     }
 
-    function decode(mixed $value): bool|string|int|float|null
+    function decode(mixed $value): null|\DateTimeImmutable
     {
         if (!is_string($value)) {
             return null;
@@ -73,6 +73,7 @@ class DateTime extends EdmEncodableDataStructure
         }   catch (\Exception) {
             return null;
         }
-        return $value;
+
+        return $value ?: null;
     }
 }

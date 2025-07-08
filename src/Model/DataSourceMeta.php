@@ -113,7 +113,9 @@ final class DataSourceMeta implements \Serializable
     }
 
     /**
-     * The same object passed in is outputted.
+     * The same object passed in is outputted
+     * If no object is passed in, it will create one for you.
+     *
      * @template T
      * @psalm-param DataSource|class-string<T> $class
      * @psalm-return T|DataSource
@@ -133,8 +135,9 @@ final class DataSourceMeta implements \Serializable
             if (isset($data[$name])) {
 
                 $pData = $data[$name];
-                if ($meta['type'] instanceof EdmEncodableDataStructure) {
-                    $pData = $meta['type']->encode($pData);
+                /** @var EdmEncodableDataStructure $edm */
+                if (($edm = $meta['type']) instanceof EdmEncodableDataStructure) {
+                    $pData = $edm->decode($pData);
                 }
                 $object->{$name} = $pData;
             }
@@ -152,15 +155,15 @@ final class DataSourceMeta implements \Serializable
         $skipNull ??= self::$deflationSkipsNullByDefault;
 
         $data = [];
-
         foreach ($this->properties as $name => $meta) {
             // Ensure we do not send stuff the rest api does not support.
             if ($httpMethod !== HttpMethod::GET && !in_array($httpMethod, $meta['methods'], true)) {
                 continue;
             }
 
-            $value = $object->{$name};
+            $value = $object->{$name} ?? null;
 
+            /** @var EdmEncodableDataStructure $edm */
             if (($edm = $meta['type']) instanceof EdmEncodableDataStructure) {
                 $value = $edm->encode($value);
             }
@@ -175,12 +178,12 @@ final class DataSourceMeta implements \Serializable
     }
 
 
-    public function serialize()
+    public function serialize(): false|string|null
     {
         return json_encode($this->__serialize());
     }
 
-    public function unserialize(string $data)
+    public function unserialize(string $data): void
     {
         $this->__unserialize(json_decode($data, true));
     }

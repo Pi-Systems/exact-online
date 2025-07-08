@@ -7,21 +7,22 @@ class EdmRegistry
     public const array EDM_CLASSES =
         [
             Edm\Binary::class,
-            Edm\DateTime::class,
-            Edm\Double::class,
-            Edm\Int32::class,
-            Edm\Single::class,
             Edm\Boolean::class,
-            Edm\DateTimeOffset::class,
-            Edm\Guid::class,
-            Edm\Int64::class,
-            Edm\Time::class,
             Edm\Byte::class,
+            Edm\DateTime::class,
+            Edm\Collection::class,
+            Edm\DateTimeOffset::class,
             Edm\Decimal::class,
+            Edm\Double::class,
+            Edm\Guid::class,
+            Edm\Int32::class,
+            Edm\Int64::class,
             Edm\Int16::class,
             Edm\SByte::class,
-            Edm\UTF8String::class,
+            Edm\Single::class,
+            Edm\Time::class,
             Edm\UTF8CodeString::class,
+            Edm\UTF8String::class,
         ];
 
     public static function map(): array {

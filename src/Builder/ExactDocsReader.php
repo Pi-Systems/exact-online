@@ -446,6 +446,7 @@ class ExactDocsReader
                 // 1) Edm.
                 // 2) Exact.Web,
                 // 3) Class
+                [$type, $local, $typeDescription] = null;
 
                 if (str_starts_with($typeAnnotation, 'Edm.')) {
                     $edm = $typeAnnotation;
@@ -460,7 +461,7 @@ class ExactDocsReader
                     // This will be caught during writing and turned into a proper annotation
                     $attributes['collection'] = $typeAnnotation;
                     $typeDescription = "A collection of {$ns}\\{$typeAnnotation}";
-                    $local = 'array';
+                    $local = '?array';
                 }
 
                 $input = $xpath->query('td/input', $item)->item($columns['checkmark']);
@@ -571,12 +572,11 @@ class ExactDocsReader
                         $ns = implode('\\', $ns);
                         $test = $ns.$type;
                         $fullClass = $toWrite[$test]['class'] ?? null;
-                        $property['attributes']['WeTried'] = 'TriedMyBest(\''.$test.'\')';
                     }
 
                     $fullClass ??= 'DataSource';
 
-                    $property['attributes']['collection'] = 'EDM\\Collection('.$fullClass.'::class, \''.$type.'\')';
+                    $property['attributes']['collection'] = 'EDM\\Collection(\\'.$fullClass.'::class, \''.$type.'\')';
                 }
 
 

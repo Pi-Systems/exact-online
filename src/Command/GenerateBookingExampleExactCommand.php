@@ -99,7 +99,7 @@ class GenerateBookingExampleExactCommand extends Command
         $i = 0;
         $total = 0.0;
         while (($row = fgetcsv($reader, separator: $separator)) !== false) {
-            if ($i++ === 0) {
+            if ($i++ === 0 || empty($row)) {
                 continue;
             } // Skip header
             [$vatCode, $GLAccount, $Description, $Amount] = $row;
@@ -132,8 +132,6 @@ class GenerateBookingExampleExactCommand extends Command
         }
         fclose($reader);
         $entry->AmountFC = $total;
-
-        var_dump($meta->deflate($entry, HttpMethod::PUT, true));
 
         return self::SUCCESS;
     }

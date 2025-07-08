@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Model;
 
-abstract class Integer extends EdmDataStructure
+abstract class Integer extends EdmDataStructure implements EdmEncodableDataStructure
 {
     public static function getBitCount(): int {
         return 1;
@@ -31,4 +31,15 @@ abstract class Integer extends EdmDataStructure
         return pow(2, static::getBitCount()) > $value;
     }
 
+    public function encode(mixed $value): array|bool|string|int|float|null
+    {
+        if (null === $value) { return null; }
+        return (int)$value;
+    }
+
+    public function decode(float|array|bool|int|string|null $value): mixed
+    {
+        if (null === $value) { return null; }
+        return (int)$value;
+    }
 }

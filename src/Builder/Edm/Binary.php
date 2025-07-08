@@ -2,10 +2,11 @@
 
 namespace PISystems\ExactOnline\Builder\Edm;
 
-use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
+use PISystems\ExactOnline\Model\EdmDataStructure;
+use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Binary extends EdmEncodableDataStructure
+class Binary extends EdmDataStructure implements FilterEncodableDataStructure
 {
     public static function getEdmType(): string
     {
@@ -27,24 +28,12 @@ class Binary extends EdmEncodableDataStructure
         return is_scalar($value);
     }
 
-    function encode(mixed $value): bool|string|int|float|null
+    function encodeForFilter(mixed $value): bool|string|int|float|null
     {
         if (null === $value) {
             return null;
         }
 
         return 'X\''.pack('H*', $value).'\'';
-    }
-
-    public function decode(mixed $value): mixed
-    {
-        $result = unpack('H*', substr($value, 2, -1));
-
-        if ($result === false) {
-            return null;
-        }
-
-        return $result[1];
-
     }
 }

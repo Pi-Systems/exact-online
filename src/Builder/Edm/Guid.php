@@ -3,9 +3,10 @@
 namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
+use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Guid extends EdmDataStructure
+class Guid extends EdmDataStructure implements  FilterEncodableDataStructure
 {
     public static function getEdmType(): string
     {
@@ -32,8 +33,11 @@ class Guid extends EdmDataStructure
     }
 
 
-    public function encode(mixed $value): string
+    public function encodeForFilter(mixed $value): ?string
     {
-        return $value;
+        if (null === $value) {
+            return null;
+        }
+        return sprintf("guid'{$value}'");
     }
 }

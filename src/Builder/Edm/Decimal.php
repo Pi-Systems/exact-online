@@ -3,12 +3,13 @@
 namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
+use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
 
 /**
  * This is just a float internally with a hard upper and lower bound.
  */
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Decimal extends EdmDataStructure
+class Decimal extends EdmDataStructure implements EdmEncodableDataStructure
 {
     const float UPPER_BOUND = 10E255;
     const float LOWER_BOUND = -10E255;
@@ -55,5 +56,22 @@ class Decimal extends EdmDataStructure
 
         return false;
     }
+
+    public function encode(mixed $value): array|bool|string|int|float|null
+    {
+        if (null === $value) {
+            return null;
+        }
+        return (float)$value;
+    }
+
+    public function decode(float|array|bool|int|string|null $value): mixed
+    {
+        if (null === $value) {
+            return null;
+        }
+        return (float)$value;
+    }
+
 
 }

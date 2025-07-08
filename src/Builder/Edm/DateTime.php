@@ -2,12 +2,13 @@
 
 namespace PISystems\ExactOnline\Builder\Edm;
 
+use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
+use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class DateTime extends EdmEncodableDataStructure
+class DateTime extends EdmDataStructure implements FilterEncodableDataStructure, EdmEncodableDataStructure
 {
-
     const string ODATA_DATE_FORMAT = 'Y-m-d\TH:i:s';
 
     public static function getEdmType(): string
@@ -36,7 +37,8 @@ class DateTime extends EdmEncodableDataStructure
         return true;
     }
 
-    function encode(mixed $value): ?string
+
+    function encodeForFilter(mixed $value): ?string
     {
         if (null === $value) {
             return null;
@@ -59,21 +61,31 @@ class DateTime extends EdmEncodableDataStructure
         return sprintf('datetime\'%s\'',\DateTimeImmutable::createFromInterface($value)->format(self::ODATA_DATE_FORMAT));
     }
 
-    function decode(mixed $value): null|\DateTimeImmutable
+    public function encode(mixed $value): array|bool|string|int|float|null
     {
-        if (!is_string($value)) {
+        if (null === $value) {
             return null;
         }
 
-        try {
-            $value = \DateTimeImmutable::createFromFormat(
-                self::ODATA_DATE_FORMAT,
-                substr($value, 9, -1) // - datetime'...'
-            );
-        }   catch (\Exception) {
+        if (!($value instanceof \DateTimeInterface)) {
+            throw new \InvalidArgumentException("Expect input type to be a DateTimeInterface or an object implementing \DateTimeInterface");
+        }
+        return $value->format(\DateTimeInterface::ATOM);
+    }
+
+    public function decode(float|array|bool|int|string|null $value): mixed
+    {
+        if (empty($value)) {
             return null;
         }
 
-        return $value ?: null;
+        // Seriously?! And o2 prides itself on being a standard... get real.
+        // Just use null  & ATOM/ISO8601 ffs, like every other normal format on the planet.
+        if (str_starts_with($value, '/Date(')) {
+            $value = (int)substr($value, 6,-2);
+            return \DateTimeImmutable::createFromTimestamp($value);
+        }
+
+        return new \DateTimeImmutable($value);
     }
 }

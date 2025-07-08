@@ -3,9 +3,10 @@
 namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
+use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Boolean extends EdmDataStructure
+class Boolean extends EdmDataStructure implements FilterEncodableDataStructure
 {
 
     public static function getEdmType(): string
@@ -27,5 +28,10 @@ class Boolean extends EdmDataStructure
     function validate(mixed $value): bool
     {
         return is_bool($value);
+    }
+
+    public function encodeForFilter(mixed $value): bool|string|int|float|null
+    {
+        return $value ? '1' : '0';
     }
 }

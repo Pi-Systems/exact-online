@@ -3,11 +3,12 @@
 namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\DataSourceMeta;
+use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
 use PISystems\ExactOnline\Model\ExactMetaDataLoader;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Collection extends EdmEncodableDataStructure
+class Collection extends EdmDataStructure implements  EdmEncodableDataStructure
 {
     private ?DataSourceMeta $targetMeta = null;
 

@@ -337,6 +337,18 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function sendRequest(RequestInterface $request): ResponseInterface
     {
+        $request = $request->withUri(
+            $request->getUri()->withPath(
+                str_replace([
+                        '{division}', // Capture normal division, in case it never got encoded
+                        '%7Bdivision%7D' // Url encoding will have likely already taken place, capture that to
+                    ],
+                    $this->getDivision(),
+                    $request->getUri()->getPath()
+                )
+            )
+        );
+
         if ($this->offline) {
             throw new OfflineException($this, $request);
         }
@@ -423,7 +435,7 @@ abstract class ExactEnvironment /*permits Exact*/
             throw new ExactCommunicationError(
                 $this,
                 new ExactResponseError(
-                    $e->getMessage(),
+                    $e->getMessage() . ' (' . (string)$request->getUri() . ')',
                     $request,
                     $response
                 )
@@ -452,8 +464,12 @@ abstract class ExactEnvironment /*permits Exact*/
                 );
 
             }
+            $message = $content['error']['message'] ?? null;
+            if (is_array($message)) {
+                $message = $message['value'] ?? json_encode($message);
+            }
             throw new \RuntimeException(
-                $content['error'],
+                $message,
             );
         }
 

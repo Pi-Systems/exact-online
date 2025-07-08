@@ -2,13 +2,12 @@
 
 namespace PISystems\ExactOnline\Command;
 
-use Doctrine\Common\Collections\Expr\Value;
 use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Model\Exact\Crm\Accounts;
 use PISystems\ExactOnline\Model\Exact\Financial\GLAccounts;
-use PISystems\ExactOnline\Model\Exact\Financialtransaction\TransactionLines;
 use PISystems\ExactOnline\Model\Exact\Salesentry\SalesEntries;
+use PISystems\ExactOnline\Model\Exact\Salesentry\SalesEntryLines;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Polyfill\Validation;
 use Symfony\Component\Console\Command\Command;
@@ -37,8 +36,9 @@ class GenerateBookingExampleExactCommand extends Command
         $this->addOption('Description', 'd', InputOption::VALUE_REQUIRED, 'The invoice description');
         $this->addOption('type', 't', InputOption::VALUE_REQUIRED, 'Type of line', 20);
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'ISO8601/ATOM format, Date of the transaction', date('c'));
-        $this->addOption('payment-condition', 'p', InputOption::VALUE_REQUIRED, 'Use this payment condition.');
+        $this->addOption('payment-condition', 'p', InputOption::VALUE_REQUIRED, 'Use this payment condition.', '00');
         $this->addOption('csv-separator', 's', InputOption::VALUE_REQUIRED, 'CSV is separated (;)', ';');
+        $this->addOption('ref', 'r', InputOption::VALUE_REQUIRED, 'The internal reference to this invoice/booking (Defaults to number if left blank)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -50,6 +50,8 @@ class GenerateBookingExampleExactCommand extends Command
         $customer = (int)$input->getArgument('customer');
         $separator = $input->getOption('csv-separator');
         $date = $input->getOption('date');
+        $ref = $input->getOption('ref') ?: $number;
+
         try {
             $date = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $date);
         } catch (\Exception $e) {
@@ -63,7 +65,7 @@ class GenerateBookingExampleExactCommand extends Command
             return self::INVALID;
         }
 
-        $paymentCondition = $input->getOption('payment-condition') ?: 0;
+        $paymentCondition = $input->getOption('payment-condition') ?: '00';
 
         $customerGuid = $this->exact->findOneBy(
             Accounts::class,
@@ -79,7 +81,6 @@ class GenerateBookingExampleExactCommand extends Command
         }
 
         $entry = new SalesEntries();
-        $meta = SalesEntries::meta();
         $entry->EntryID = $this->exact->uuid();
         $entry->EntryDate = $date;
         $entry->ReportingPeriod = $date->format('m');
@@ -87,12 +88,12 @@ class GenerateBookingExampleExactCommand extends Command
         $entry->Journal = $journal;
         $entry->PaymentCondition = $paymentCondition;
         $entry->InvoiceNumber = $number;
-        $entry->PaymentReference = $paymentCondition;
         $entry->Type = $type;
         $entry->Created = $date;
-        $entry->Customer = $customer;
+        $entry->Customer = $customerGuid;
         $entry->Description = $description;
         $entry->SalesEntryLines = [];
+        $entry->YourRef = $ref;
 
         // Read lines from csv
         $reader = fopen($csv, 'r');
@@ -102,7 +103,7 @@ class GenerateBookingExampleExactCommand extends Command
             if ($i++ === 0 || empty($row)) {
                 continue;
             } // Skip header
-            [$vatCode, $GLAccount, $Description, $Amount] = $row;
+            [$vatCode, $GLAccount, $Description, $Amount, $GLType] = $row;
 
             if (!Validation::is_guid($GLAccount)) {
                 $GLAccount = $this->accounts[$GLAccount] ??= (fn() => $this->exact->findOneBy(
@@ -115,17 +116,13 @@ class GenerateBookingExampleExactCommand extends Command
             }
 
             $fAmount = (float)$Amount;
-            $line = new TransactionLines();
+            $line = new SalesEntryLines();
             $line->EntryID = $entry->EntryID;
-            $line->InvoiceNumber = $number;
             $line->LineNumber = $i;
             $line->VATCode = $vatCode;
             $line->GLAccount = $GLAccount;
             $line->Description = $Description;
             $line->AmountFC = $fAmount;
-            $line->Currency = 'EUR';
-            $line->Type = $type;
-            $line->Date = $date;
 
             $total += $fAmount;
             $entry->SalesEntryLines[] = $line;
@@ -133,6 +130,13 @@ class GenerateBookingExampleExactCommand extends Command
         fclose($reader);
         $entry->AmountFC = $total;
 
-        return self::SUCCESS;
+        $created = $this->exact->create($entry);
+        $output->writeln(
+            $created
+            ? "<info>Entry created</info>"
+            : "<error>Entry not created</error>"
+        );
+
+        return $created ? self::SUCCESS : self::FAILURE;
     }
 }

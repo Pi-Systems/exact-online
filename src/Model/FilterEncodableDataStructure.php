@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Model;
 
 // This was created to ensure Accounts::$Code works without having to think about it.
-abstract class FilterEncodableDataStructure extends EdmEncodableDataStructure
+interface FilterEncodableDataStructure
 {
     /**
      * Before encoding the output, run through this first.
@@ -11,8 +11,5 @@ abstract class FilterEncodableDataStructure extends EdmEncodableDataStructure
      * @param mixed $value
      * @return bool|string|int|float|null
      */
-    public function encodeForFilter(mixed $value): bool|string|int|float|null
-    {
-        return (string)$value;
-    }
+    public function encodeForFilter(mixed $value): bool|string|int|float|null;
 }

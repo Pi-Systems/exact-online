@@ -586,7 +586,7 @@ class ExactDocsReader
                     $attributeString .= sprintf('    #[%s]' . PHP_EOL, $entry);
                 }
 
-                $variables[] = str_replace(
+                $variables[] = rtrim(str_replace(
                     [
                         '{{name}}',
                         '{{localType}}',
@@ -600,11 +600,11 @@ class ExactDocsReader
                         $property['local'],
                         $property['description'],
                         $property['typeDescription'],
-                        $attributeString,
+                        rtrim($attributeString),
                         ' = null'
                     ],
                     $methodTemplateContent
-                );
+                ));
             }
 
             $content = file_get_contents($file);

@@ -187,7 +187,6 @@ class Exact extends ExactEnvironment
         }
 
         $uri = $this->criteriaToUri($meta, $criteria);
-
         do {
             $cKey = 'matching::' . $this->getDivision() . '::' . sha1($source->name . "::" . $uri);
             $item = $this->manager->cache->getItem($cKey);
@@ -196,10 +195,6 @@ class Exact extends ExactEnvironment
             } else {
                 $request = $this->createRequest($uri);
                 $response = $this->sendAuthenticatedRequest($request);
-
-                if ($response->getStatusCode() !== 200) {
-                    throw new ExactResponseError('Unable to retrieve (any) data from Exact', $request, $response);
-                }
 
                 $data = $this->decodeJsonRequestResponse($request, $response);
 
@@ -306,28 +301,32 @@ class Exact extends ExactEnvironment
     /**
      * Warning: Returns a NEW DataSource object upon success
      * @param DataSource $object
-     * @return DataSource
+     * @return bool
      */
-    public function create(DataSource $object): DataSource
+    public function create(DataSource $object): bool
     {
         $meta = $object::meta();
         if (!$meta->supports(HttpMethod::POST)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::POST);
         }
 
-        $data = $meta->deflate($object, HttpMethod::POST);
-        $uri = $this->manager->uriFactory->createUri($meta->endpoint);
+        $data = $meta->deflate($object, HttpMethod::POST, true);
+        $uri = $this->manager->uriFactory->createUri(
+            sprintf(
+                "%s://%s%s",
+                ExactConnectionManager::CONN_API_PROTOCOL,
+                ExactConnectionManager::CONN_API_DOMAIN,
+                $meta->endpoint,
+            )
+        );
         $request = $this->createRequest($uri, 'POST', new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
-        $data = $this->decodeJsonRequestResponse($request, $response);
 
         if ($response->getStatusCode() !== 201) {
             throw new ExactResponseError('Unable to create object in Exact', $request, $response);
         }
 
-        $data = $data['d'];
-
-        return $meta->hydrate($data);
+        return true;
     }
 
     /**

@@ -1,5 +1,5 @@
-VatCode;GLAccount;Description;Amount
-2;1300;"Line 1 of test send";10.11
-2;1300;"Line 2 of test send";11.12
-2;1300;"Line 3 of test send";12.13
-2;1300;"Line 4 of test send";13.14
+VatCode;GLAccount;Description;Amount;Type
+2;"0110";"Line 1 of test send";10.11;20
+2;"0110";"Line 2 of test send";11.12;20
+2;"0110";"Line 3 of test send";12.13;20
+2;"0110";"Line 4 of test send";13.14;20

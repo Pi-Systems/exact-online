@@ -2,10 +2,11 @@
 
 namespace PISystems\ExactOnline\Builder\Edm;
 
-use PISystems\ExactOnline\Model\EdmDataStructure;
+use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
+use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Time extends EdmDataStructure
+class Time extends FilterEncodableDataStructure
 {
 
     public static function getEdmType(): string
@@ -25,10 +26,6 @@ class Time extends EdmDataStructure
 
     function validate(mixed $value): bool
     {
-        if ($value instanceof \DateTimeInterface) {
-            return true;
-        }
-
         if ($value instanceof \DateInterval) {
             if ($value->days<0) {
                 return true;
@@ -44,5 +41,28 @@ class Time extends EdmDataStructure
         }
 
         return false;
+    }
+
+    function encodeForFilter(mixed $value): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $value = abs($value);
+            $hours = floor($value / 3600);
+            $minutes = floor($value / 60 % 60);
+            $seconds = floor($value % 60);
+            $value = new \DateTimeInterval("PT{$hours}H{$minutes}M{$seconds}S");
+        }
+
+        if (!($value instanceof \DateInterval)) {
+            throw new \InvalidArgumentException('Time segment input not supported.');
+        }
+
+        /** @var \DateInterval $value */
+
+        return sprintf('time\'%s\'',$value->format('PT%hH%iM%sS'));
     }
 }

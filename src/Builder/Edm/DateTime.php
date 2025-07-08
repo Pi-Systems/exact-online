@@ -38,6 +38,10 @@ class DateTime extends EdmEncodableDataStructure
 
     function encode(mixed $value): ?string
     {
+        if (null === $value) {
+            return null;
+        }
+
         if (!($value instanceof \DateTimeInterface)) {
             if (!is_string($value)) {
                 throw new \InvalidArgumentException("Expect input type to be a ISO8601 string or an object implementing \DateTimeInterface");

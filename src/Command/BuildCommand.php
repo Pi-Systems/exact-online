@@ -5,6 +5,7 @@ namespace PISystems\ExactOnline\Command;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
 use PISystems\ExactOnline\Builder\ExactDocsReader;
+use PISystems\ExactOnline\Model\ExactAttributeOverrides;
 use PISystems\ExactOnline\Polyfill\SimpleAbstractLogger;
 use PISystems\ExactOnline\Polyfill\SimpleClosureLogger;
 use PISystems\ExactOnline\Polyfill\SimpleFileCache;
@@ -47,7 +48,8 @@ class BuildCommand extends Command
                     }
                 }
             ),
-            $ttl
+            $ttl,
+            attributeOverrides: new ExactAttributeOverrides()
         );
 
         $reader->localOnly = true;

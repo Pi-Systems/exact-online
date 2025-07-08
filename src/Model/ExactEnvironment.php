@@ -2,7 +2,6 @@
 
 namespace PISystems\ExactOnline\Model;
 
-use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Enum\CredentialsType;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Events\CredentialsChange;
@@ -14,16 +13,15 @@ use PISystems\ExactOnline\Exceptions\ExactCommunicationError;
 use PISystems\ExactOnline\Exceptions\ExactEmptyResponseError;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\ExactResponseNOKError;
+use PISystems\ExactOnline\Exceptions\OfflineException;
 use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
 use PISystems\ExactOnline\Model\Exact as Model;
 use PISystems\ExactOnline\Polyfill\FormStream;
-use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
-use Psr\Log\LoggerInterface;
 
 /*sealed*/
 
@@ -31,9 +29,10 @@ abstract class ExactEnvironment /*permits Exact*/
 {
 
     public bool $treatEmptyAsError = true;
+
+    public bool $offline = false;
+
     private ?ExactRateLimits $rateLimits = null;
-    public readonly CacheItemPoolInterface $cache;
-    public readonly LoggerInterface $logger;
 
     public ?int $division = null {
         get => $this->configuration->division;
@@ -338,6 +337,9 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function sendRequest(RequestInterface $request): ResponseInterface
     {
+        if ($this->offline) {
+            throw new OfflineException($this, $request);
+        }
         // Do not use the accessor, as it would instantiate an empty one.
         // We really do want to check if we know our limits already.
         if (null !== $this->rateLimits) {
@@ -358,9 +360,6 @@ abstract class ExactEnvironment /*permits Exact*/
 
         try {
             $response = $this->manager->client->sendRequest($request);
-
-            print PHP_EOL."---------------". PHP_EOL . PHP_EOL.date('c').PHP_EOL;
-            var_dump($request, $response, $response->getBody()->getContents());
         } catch (ClientExceptionInterface $e) {
             throw new ExactCommunicationError($this, $e);
         }

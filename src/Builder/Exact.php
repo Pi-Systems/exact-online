@@ -14,6 +14,7 @@ use PISystems\ExactOnline\Model\ExactMetaDataLoader;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Model\Expr\ExactVisitor;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
+use Psr\Cache\InvalidArgumentException;
 
 /**
  * Feel free to extend this class to add your own helpers.
@@ -26,7 +27,7 @@ class Exact extends ExactEnvironment
      * Which, imo, is a dumb way to describe it.
      * @return int
      */
-    public function getDivision() : int
+    public function getDivision(): int
     {
         return $this->loadAdministrationData();
     }
@@ -38,13 +39,15 @@ class Exact extends ExactEnvironment
      * @psalm-template T $entry
      * @param DataSource|DataSourceMeta|string $source
      * @param string $id
+     * @param bool $cached
      * @return T
      * @template T
      */
     public function find(
         DataSource|DataSourceMeta|string $source,
-        string $id,
-    ) : DataSource
+        string                           $id,
+        bool                             $cached = true
+    ): DataSource
     {
         $meta = ExactMetaDataLoader::meta($source);
         // /route(guid'uuid') works as well, but this is just more expressive.
@@ -52,15 +55,16 @@ class Exact extends ExactEnvironment
             $meta,
             Criteria::create()->where(
                 Criteria::expr()->eq($source->keyColumn, $id)
-            )
+            ),
+            $cached
         );
         return $generator->current();
     }
 
     public function criteriaToUri(
         DataSourceMeta $meta,
-        ?Criteria $criteria = null,
-    ) : Uri
+        ?Criteria      $criteria = null,
+    ): Uri
     {
         if (!$meta->supports(HttpMethod::GET)) {
             throw new MethodNotSupported($this, $meta->name, HttpMethod::GET);
@@ -70,11 +74,11 @@ class Exact extends ExactEnvironment
             "%s://%s%s",
             ExactConnectionManager::CONN_API_PROTOCOL,
             ExactConnectionManager::CONN_API_DOMAIN,
-            str_replace('{division}', $this->getDivision(),  $meta->endpoint)
+            str_replace('{division}', $this->getDivision(), $meta->endpoint)
         ));
 
         if ($criteria) {
-            $visitor = new ExactVisitor();
+            $visitor = new ExactVisitor($meta);
             $filter = $visitor->dispatch($criteria->getWhereExpression());
             if (!empty($filter)) {
                 $query = ['$filter=' . $filter];
@@ -134,7 +138,7 @@ class Exact extends ExactEnvironment
                     );
                 }
 
-               $query[] = '$top=' . $max;
+                $query[] = '$top=' . $max;
             }
 
             if ($criteria->skipToken) {
@@ -161,12 +165,17 @@ class Exact extends ExactEnvironment
      * @psalm-template T $entry
      * @param DataSource|DataSourceMeta|string $source
      * @param Criteria|null $criteria
+     * @param bool $cached Note: Cache is on the data layer, hydration is still performed normally.
+     *                     While less performant, this does allows library updates without destroying existing caches.
+     *
+     *
      * @return \Generator<T>
      * @template T
      */
     public function matching(
         DataSource|DataSourceMeta|string $source,
-        ?Criteria                         $criteria = null,
+        ?Criteria                        $criteria = null,
+        bool                             $cached = true
     ): \Generator
     {
         $meta = ExactMetaDataLoader::meta($source);
@@ -178,17 +187,25 @@ class Exact extends ExactEnvironment
         }
 
         $uri = $this->criteriaToUri($meta, $criteria);
-        $request = $this->createRequest($uri);
+
         do {
-            $response = $this->sendAuthenticatedRequest($request);
+            $cKey = 'matching::' . $this->getDivision() . '::' . sha1($source->name . "::" . $uri);
+            $item = $this->manager->cache->getItem($cKey);
+            if ($cached && $item->isHit()) {
+                $data = $item->get();
+            } else {
+                $request = $this->createRequest($uri);
+                $response = $this->sendAuthenticatedRequest($request);
 
-            if ($response->getStatusCode() !== 200) {
-                throw new ExactResponseError('Unable to retrieve (any) data from Exact', $request, $response);
+                if ($response->getStatusCode() !== 200) {
+                    throw new ExactResponseError('Unable to retrieve (any) data from Exact', $request, $response);
+                }
+
+                $data = $this->decodeJsonRequestResponse($request, $response);
+
+                $item->set($data);
+                $this->manager->cache->save($item);
             }
-
-//            var_dump($response->getBody()->getContents());
-            $data = $this->decodeJsonRequestResponse($request, $response);
-
 
             $next = $data['__next'] ?? null;
 
@@ -207,12 +224,13 @@ class Exact extends ExactEnvironment
     /**
      * @template T
      * @psalm-param DataSource|class-string<T> $source
-     * @psalm-return T|DataSource|null
+     * @psalm-return T|DataSource
      */
     public function findOneBy(
         DataSource|DataSourceMeta|string $source,
-        array|Criteria                         $criteria,
-        bool $orOperation = false
+        array|Criteria                   $criteria,
+        bool                             $orOperation = false,
+        bool                             $cached = true
     )
     {
         $meta = ExactMetaDataLoader::meta($source);
@@ -249,7 +267,7 @@ class Exact extends ExactEnvironment
         }
 
         $return = null;
-        foreach ($this->matching($meta, $criteria) as $result) {
+        foreach ($this->matching($meta, $criteria, $cached) as $result) {
             if ($return) {
                 throw new \RuntimeException(
                     "Expected only one result to be returned from matching()"
@@ -263,7 +281,7 @@ class Exact extends ExactEnvironment
 
     public function count(
         DataSource|DataSourceMeta|string $source
-    ) : int
+    ): int
     {
         $meta = ExactMetaDataLoader::meta($source);
 
@@ -309,7 +327,6 @@ class Exact extends ExactEnvironment
 
         $data = $data['d'];
 
-        $class = $object::class;
         return $meta->hydrate($data);
     }
 
@@ -384,7 +401,7 @@ class Exact extends ExactEnvironment
         );
     }
 
-    public function uuid(?string $seed = null) : string
+    public function uuid(?string $seed = null): string
     {
         return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
     }

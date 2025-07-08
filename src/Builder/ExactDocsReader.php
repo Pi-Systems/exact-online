@@ -2,8 +2,10 @@
 
 namespace PISystems\ExactOnline\Builder;
 
+use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\EdmDataStructure;
+use PISystems\ExactOnline\Model\ExactAttributeOverridesInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
 use Psr\Http\Client\ClientExceptionInterface;
@@ -47,10 +49,10 @@ class ExactDocsReader
     ];
 
     public function __construct(
-        protected CacheItemPoolInterface  $cache,
-        protected RequestFactoryInterface $requestFactory,
-        protected ClientInterface         $client,
-        protected LoggerInterface         $logger,
+        protected readonly CacheItemPoolInterface  $cache,
+        protected readonly RequestFactoryInterface $requestFactory,
+        protected readonly ClientInterface         $client,
+        protected readonly LoggerInterface         $logger,
         // The contents of this will not expire that quickly.
         public int                        $expirationTime = 5 * 24 * 60 * 60,
         public string                     $targetDirectory = __DIR__ . '/../Model/Exact' {
@@ -62,6 +64,7 @@ class ExactDocsReader
         public string                     $methodTemplate = __DIR__ . '/../Resources/MethodTemplate.phps' {
             set => !file_exists($value) || is_readable($value) ? $value : throw new \RuntimeException("File {$value} is not readable.");
         },
+        public readonly ?ExactAttributeOverridesInterface $attributeOverrides = null
     )
     {
         if (!is_writable($this->targetDirectory)) {
@@ -280,20 +283,25 @@ class ExactDocsReader
         }
 
         $attributes = [
-            'Exact\\PageSize(' . $pageSize . ')',
-            'Exact\\Endpoint("' . $path . '")',
+            'pagesize' => 'Exact\\PageSize(' . $pageSize . ')',
+            'endpoint' => 'Exact\\Endpoint("' . $path . '", "'.$endpoint.'")',
         ];
 
 
         $aMethods = array_map('trim', explode(',', $methods));
         foreach ($aMethods as $method) {
-            $attributes[] = 'Exact\\Method(HttpMethod::' . $method . ')';
+            $attributes['method::'.$method] = 'Exact\\Method(HttpMethod::' . $method . ')';
+        }
+
+        if ($this->attributeOverrides?->hasOverrides($class)) {
+            $attributes = $this->attributeOverrides->override($class, $attributes);
         }
 
         $attribute = '';
         foreach ($attributes as $attrib) {
             $attribute .= sprintf('#[' . $attrib . ']' . PHP_EOL, $attribute);
         }
+
 
         $content = str_replace(
             [
@@ -331,7 +339,7 @@ class ExactDocsReader
         $this->logger->debug("OK");
         $this->logger->debug("Scheduling property writing");
         if ($resource) {
-            $this->entityParseQueue[] = [$file, $resource, $aMethods, $namespace . '\\' . $class];
+            $this->entityParseQueue[] = [$file, $resource, $aMethods, $namespace . '\\' . $class, $endpoint];
         }
 
     }
@@ -344,8 +352,11 @@ class ExactDocsReader
         $total = count($this->entityParseQueue);
         $current = 0;
         $prev = 0;
-        foreach ($this->entityParseQueue as [$file, $uri, $availableMethods]) {
+        $toWrite = [];
+        // Collect everything first
+        foreach ($this->entityParseQueue as [$file, $uri, $availableMethods, $class, $endpoint]) {
             $current++;
+
             $percent = round(($current / $total) * 100);
             if ($percent !== $prev) {
                 $this->logger->info("{$percent}% ({$current}/{$total})");
@@ -420,7 +431,38 @@ class ExactDocsReader
 
                 $required = strtolower(trim($cells[$columns['mandatory']]->textContent)) !== 'false';
                 $name = trim($cells[$columns['name']]->textContent);
-                $edm = trim($cells[$columns['type']]->textContent);
+
+                $attributes = [];
+                $typeAnnotation = trim($cells[$columns['type']]->textContent);
+                // Slightly more tricky than I initially thought.
+                // The document is slightly broken at the time of writing.
+                // If there is an anchor, it can be either an EDM structure, or a navigation item.
+                // If there is no anchor, it is a malformed navigation item, however the name can still be looked up.
+                // If there is an anchor, and it does not start with Edm. then we have a minor issue.
+                // https://start.exactonline.nl/docs/HlpRestAPIResourcesDetails.aspx?name=ManufacturingShopOrderMaterialPlanDetails # Calculator as an example
+                // This has Exact.Web.Api.Models.Manufacturing.MaterialPlanCalculator as a linked type (Which links to... oData, which it is clearly not, it's a Guid ffs)
+                //
+                // We 'solve' this for now using 3 checks.
+                // 1) Edm.
+                // 2) Exact.Web,
+                // 3) Class
+
+                if (str_starts_with($typeAnnotation, 'Edm.')) {
+                    $edm = $typeAnnotation;
+                    [$type, $local, $typeDescription] = $edmMap[$edm] ?? [null, 'mixed', ''];
+                } elseif (str_contains($typeAnnotation, 'Exact.Web.')) {
+                    // We have no damn clue, probably a string.
+                    $local = 'mixed';
+                    $attributes['exact_web'] = "EDM\\ExactWeb('{$typeAnnotation}')";
+                    $typeDescription = "Unknown ExactWeb type {$typeAnnotation}";
+                } else {
+                    $ns = substr($class, strrpos($class, '\\') + 1);
+                    // This will be caught during writing and turned into a proper annotation
+                    $attributes['collection'] = $typeAnnotation;
+                    $typeDescription = "A collection of {$ns}\\{$typeAnnotation}";
+                    $local = 'array';
+                }
+
                 $input = $xpath->query('td/input', $item)->item($columns['checkmark']);
                 $description = trim($cells[$columns['description']]->textContent);
 
@@ -429,12 +471,7 @@ class ExactDocsReader
                     $description = trim(implode("     * ", array_map('trim', $lines))) . PHP_EOL . "     * ";
                 }
 
-                [$type, $local, $typeDescription] = $edmMap[$edm] ?? [null, 'mixed', ''];
-
-                $attributes = [];
-
                 $isPrimaryKey = $input?->attributes->getNamedItem('data-key')?->nodeValue === 'True';
-
 
                 if (!empty($type)) {
                     // Required is based on the method used, so just treat everything as optional until validation.
@@ -443,18 +480,18 @@ class ExactDocsReader
                     }
 
                     if (str_starts_with($type, 'PISystems\\ExactOnline\\Builder\\Edm')) {
-                        $attributes[] = 'EDM\\' .
+                        $attributes['edm'] = 'EDM\\' .
                             substr($type, strlen('PISystems\\ExactOnline\\Builder\\Edm\\'));
                     }
                 }
 
                 if ($isPrimaryKey) {
                     $required = true;
-                    $attributes[] = 'Exact\\Key';
+                    $attributes['key'] = 'Exact\\Key';
                 }
 
                 if ($required) {
-                    $attributes[] .= 'Exact\\Required';
+                    $attributes['required'] = 'Exact\\Required';
                 }
 
                 // Availability calculation is a joke.
@@ -489,41 +526,86 @@ class ExactDocsReader
                 }
 
                 foreach ($methods as $method) {
-                    $attributes[] = 'Exact\\Method(HttpMethod::' . $method . ')';
+                    $attributes['method::'.$method] = 'Exact\\Method(HttpMethod::' . $method . ')';
+                }
+
+                $prop = $class. '::$'.$name;
+                if ($this->attributeOverrides->hasOverrides($prop)) {
+                    $attributes = $this->attributeOverrides->override($prop, $attributes);
+                }
+
+                $toWrite[$endpoint] ??= [
+                    'file' => $file,
+                    'class' => $class,
+                    'properties' =>[],
+                    'endpointDescriptions' => $endpointDescriptions
+                ];
+
+                $toWrite[$endpoint]['properties'][$name] = [
+                    'local' => $local,
+                    'description' => $description,
+                    'typeDescription' => $typeDescription,
+                    'attributes' => $attributes,
+                ];
+            }
+        }
+
+        foreach ($toWrite as $endpoint => $value) {
+            $file = $value['file'];
+            $properties = $value['properties'];
+
+            $variables = [];
+            foreach ($properties as $name => &$property) {
+
+                if (array_key_exists('collection', $property['attributes'])) {
+                    $type = $property['attributes']['collection'];
+                    $fullClass =
+                        $toWrite[$type]['class']
+                        ?? $toWrite[$endpoint.$type]['class'] ?? null;
+
+                    if (!$fullClass) {
+                        // One more attempt, using CamelCased Namespace of the class... **sigh**
+                        $ns = str_replace("PISystems\\ExactOnline\\Model\\Exact\\", '', substr($value['class'], strrpos($value['class'], '\\') + 1));
+                        $ns = explode('\\', $ns);
+                        $ns = array_map('ucfirst', $ns);
+                        $ns = implode('\\', $ns);
+                        $test = $ns.$type;
+                        $fullClass = $toWrite[$test]['class'] ?? null;
+                        $property['attributes']['WeTried'] = 'TriedMyBest(\''.$test.'\')';
+                    }
+
+                    $fullClass ??= 'DataSource';
+
+                    $property['attributes']['collection'] = 'EDM\\Collection('.$fullClass.'::class, \''.$type.'\')';
                 }
 
 
-                $attribute = PHP_EOL;
-                foreach ($attributes as $entry) {
-                    $attribute .= sprintf('    #[%s]' . PHP_EOL, $entry);
-                }
+                $attributeString = PHP_EOL;
 
-                $default =' = null';
+                foreach ($property['attributes'] as $entry) {
+                    $attributeString .= sprintf('    #[%s]' . PHP_EOL, $entry);
+                }
 
                 $variables[] = str_replace(
                     [
-                        '{{description}}',
-                        '{{uri}}',
-                        '{{localType}}',
-                        '{{typeDescription}}',
                         '{{name}}',
+                        '{{localType}}',
+                        '{{description}}',
+                        '{{typeDescription}}',
                         '{{attributes}}',
-                        '{{default}}'
+                        '{{default}}',
                     ],
                     [
-                        $description,
-                        $uri,
-                        $local,
-                        $typeDescription,
                         $name,
-                        rtrim($attribute),
-                        $default,
+                        $property['local'],
+                        $property['description'],
+                        $property['typeDescription'],
+                        $attributeString,
+                        ' = null'
                     ],
                     $methodTemplateContent
                 );
-
             }
-
 
             $content = file_get_contents($file);
             $content = str_replace([
@@ -531,7 +613,7 @@ class ExactDocsReader
                 '{{endpointDescriptions}}'
             ], [
                 implode(PHP_EOL, $variables),
-                $endpointDescriptions,
+                $value['endpointDescriptions']
             ], $content);
             file_put_contents($file, $content);
             $this->logger->debug("Wrote {$uri}.");

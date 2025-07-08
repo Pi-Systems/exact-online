@@ -2,12 +2,15 @@
 
 namespace PISystems\ExactOnline\Command;
 
+use Doctrine\Common\Collections\Expr\Value;
 use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Model\Exact\Crm\Accounts;
+use PISystems\ExactOnline\Model\Exact\Financial\GLAccounts;
 use PISystems\ExactOnline\Model\Exact\Financialtransaction\TransactionLines;
 use PISystems\ExactOnline\Model\Exact\Salesentry\SalesEntries;
 use PISystems\ExactOnline\Model\Expr\Criteria;
+use PISystems\ExactOnline\Polyfill\Validation;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -16,6 +19,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class GenerateBookingExampleExactCommand extends Command
 {
+    private array $accounts = [];
+
     public function __construct(
         private readonly Exact $exact,
     )
@@ -27,9 +32,10 @@ class GenerateBookingExampleExactCommand extends Command
     {
         $this->addArgument('number', InputArgument::REQUIRED, 'What invoice number should we attach this to?');
         $this->addArgument('journal', InputArgument::REQUIRED, 'What journal should we attach this to?');
-        $this->addArgument('account', InputArgument::REQUIRED, 'What account should we attach this to? (code)');
+        $this->addArgument('customer', InputArgument::REQUIRED, 'What customer should we attach this to? (code)');
         $this->addArgument('csv', InputArgument::REQUIRED, 'Read line data from (this) csv file (See CommandExamples.md#csv for formatting, csv on purpose to allow \'easy\' changes.)');
-        $this->addOption('type', 't',  InputOption::VALUE_REQUIRED, 'Type of line', 20 );
+        $this->addOption('Description', 'd', InputOption::VALUE_REQUIRED, 'The invoice description');
+        $this->addOption('type', 't', InputOption::VALUE_REQUIRED, 'Type of line', 20);
         $this->addOption('date', null, InputOption::VALUE_REQUIRED, 'ISO8601/ATOM format, Date of the transaction', date('c'));
         $this->addOption('payment-condition', 'p', InputOption::VALUE_REQUIRED, 'Use this payment condition.');
         $this->addOption('csv-separator', 's', InputOption::VALUE_REQUIRED, 'CSV is separated (;)', ';');
@@ -37,93 +43,98 @@ class GenerateBookingExampleExactCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $meta = TransactionLines::meta();
 
-        $number = $input->getArgument('number');
+        $number = (int)$input->getArgument('number');
         $journal = $input->getArgument('journal');
-        $csv = $input->getArgument('csv');
         $type = (int)$input->getOption('type') ?: 20;
-        $account = $input->getArgument('account');
+        $customer = (int)$input->getArgument('customer');
         $separator = $input->getOption('csv-separator');
-
-        if (!is_file($csv) || !is_readable($csv)) {
-            $output->writeln("<error>File {$csv} not exists.</error>");
-            return self::INVALID;
-        }
-
-
-        $date =$input->getOption('date');
+        $date = $input->getOption('date');
         try {
             $date = \DateTimeImmutable::createFromFormat(\DateTimeInterface::ATOM, $date);
         } catch (\Exception $e) {
             $output->writeln("Could not parse given date element {$date}, please ensure the date follows ISO8601/ATOM format.");
         }
+        $description = $input->getOption('Description') ?: "Test booking using PISystems\ExactOnline on ".$date->format(\DateTimeInterface::ATOM);
+
+        $csv = $input->getArgument('csv');
+        if (!is_file($csv) || !is_readable($csv)) {
+            $output->writeln("<error>File {$csv} not exists.</error>");
+            return self::INVALID;
+        }
 
         $paymentCondition = $input->getOption('payment-condition') ?: 0;
 
-        /** @var Accounts|null $customer */
-        $customer = $this->exact->findOneBy(
+        $customerGuid = $this->exact->findOneBy(
             Accounts::class,
-            Criteria::create()
-                ->from(Accounts::class)
+            Criteria::create()->where(
+                Criteria::expr()->eq('Code', $customer),
+            )
                 ->select('ID')
-                ->where(
-                    Criteria::expr()->eq('Code', $account),
-                )
         )?->ID;
 
-        if (!$customer) {
-            $output->writeln("<error>Account with account code {$account} not found (This example does not create one).</error>");
+        if (!$customerGuid) {
+            $output->writeln("<error>Account with account code {$customer} not found (This example does not create one).</error>");
+            return self::INVALID;
         }
 
-
-        $lines = [$line0 = new SalesEntries()];
-
-        $line0->EntryID = $this->exact->uuid();
-        $line0->InvoiceNumber = $number;
-        $line0->PaymentReference = $paymentCondition;
-        $line0->Type = $type;
-        $line0->Created = $date;
-        $line0->Customer = $customer;
-//        $line0->LineType = 0;
-//        $line0->Date = $date;
-//        $line0->LineNumber = 0;
-//        $line0->AccountCode = $accountCode;
-//        $line0->AccountName = $accountName;
+        $entry = new SalesEntries();
+        $meta = SalesEntries::meta();
+        $entry->EntryID = $this->exact->uuid();
+        $entry->EntryDate = $date;
+        $entry->ReportingPeriod = $date->format('m');
+        $entry->ReportingYear = $date->format('Y');
+        $entry->Journal = $journal;
+        $entry->PaymentCondition = $paymentCondition;
+        $entry->InvoiceNumber = $number;
+        $entry->PaymentReference = $paymentCondition;
+        $entry->Type = $type;
+        $entry->Created = $date;
+        $entry->Customer = $customer;
+        $entry->Description = $description;
+        $entry->SalesEntryLines = [];
 
         // Read lines from csv
         $reader = fopen($csv, 'r');
         $i = 0;
         $total = 0.0;
         while (($row = fgetcsv($reader, separator: $separator)) !== false) {
-            if ($i++ === 0) { continue; } // Skip header
-            [$vatType,$GLAccount,$Description,$Amount] = $row;
+            if ($i++ === 0) {
+                continue;
+            } // Skip header
+            [$vatCode, $GLAccount, $Description, $Amount] = $row;
+
+            if (!Validation::is_guid($GLAccount)) {
+                $GLAccount = $this->accounts[$GLAccount] ??= (fn() => $this->exact->findOneBy(
+                    GLAccounts::class,
+                    Criteria::create()->where(
+                        Criteria::expr()->eq('Code', $GLAccount),
+                    )
+                        ->select('ID')
+                )?->ID)();
+            }
+
             $fAmount = (float)$Amount;
             $line = new TransactionLines();
+            $line->EntryID = $entry->EntryID;
             $line->InvoiceNumber = $number;
             $line->LineNumber = $i;
-            $line->VATType = $vatType;
+            $line->VATCode = $vatCode;
             $line->GLAccount = $GLAccount;
             $line->Description = $Description;
             $line->AmountFC = $fAmount;
-            $line->AmountVATBaseFC = $fAmount;
             $line->Currency = 'EUR';
             $line->Type = $type;
             $line->Date = $date;
 
-            $total+= $fAmount;
-            $lines[] = $line;
+            $total += $fAmount;
+            $entry->SalesEntryLines[] = $line;
         }
         fclose($reader);
-        $line0->AmountFC = $total;
+        $entry->AmountFC = $total;
 
-        foreach ($lines as $k => $line) {
-            $output->writeln(sprintf("[%d] %s (%f)", $k, $line->InvoiceNumber, $line->AmountFC));
-            var_dump($meta->deflate($line, HttpMethod::PUT, true));
-        }
+        var_dump($meta->deflate($entry, HttpMethod::PUT, true));
 
         return self::SUCCESS;
     }
-
-
 }

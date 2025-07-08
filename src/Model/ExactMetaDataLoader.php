@@ -2,6 +2,9 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use PISystems\ExactOnline\Builder\Edm\Collection;
+use PISystems\ExactOnline\Builder\Edm\ExactWeb;
+use PISystems\ExactOnline\Builder\Edm\Required;
 use PISystems\ExactOnline\Builder\EdmRegistry;
 use PISystems\ExactOnline\Builder\ExactDocsReader;
 
@@ -27,6 +30,9 @@ class ExactMetaDataLoader
             return self::$objectMetaCache[$source] ??=
                 unserialize(self::$metaCache[$source], ['allowed_classes' => [
                     DataSourceMeta::class,
+                    Required::class,
+                    Collection::class,
+                    ExactWeb::class,
                     ... EdmRegistry::EDM_CLASSES
                 ]]);
         }

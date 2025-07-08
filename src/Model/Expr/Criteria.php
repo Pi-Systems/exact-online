@@ -47,7 +47,7 @@ class Criteria extends BaseCriteria
         }
     }
 
-    private ?DataSourceMeta $meta;
+    private ?DataSourceMeta $meta = null;
 
     /**
      * Set to true to allow using setFirstResult without crashing out.

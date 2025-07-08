@@ -21,6 +21,7 @@ class EdmRegistry
             Edm\Int16::class,
             Edm\SByte::class,
             Edm\UTF8String::class,
+            Edm\UTF8CodeString::class,
         ];
 
     public static function map(): array {

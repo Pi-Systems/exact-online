@@ -7,13 +7,30 @@ use Doctrine\Common\Collections\Expr\CompositeExpression;
 use Doctrine\Common\Collections\Expr\ExpressionVisitor;
 use Doctrine\Common\Collections\Expr\Value;
 use Override;
+use PISystems\ExactOnline\Model\DataSourceMeta;
+use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
 
 class ExactVisitor extends ExpressionVisitor
 {
+    public function __construct(private readonly DataSourceMeta $meta)
+    {
+
+    }
+
     #[Override] public function walkComparison(Comparison $comparison): string
     {
         $field = $comparison->getField();
         $value = $comparison->getValue()->getValue();
+
+        // Even if a field does not exist, DO NOT BLOCK, exact does have virtual fields that we may not know about.
+        // (Example: __next)
+        if ($this->meta->hasProperty($field)) {
+            $prop = $this->meta->properties[$field];
+            $edm = $prop['type'] ?? null;
+            if ($edm instanceof FilterEncodableDataStructure) {
+                $value = $edm->encodeForFilter($value);
+            }
+        }
 
         return match ($op = $comparison->getOperator()) {
             Comparison::EQ, =>  $this->quoted('eq', $field, $value),

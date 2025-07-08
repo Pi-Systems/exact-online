@@ -6,11 +6,8 @@ class SeededUuidProvider implements SeededUuidProviderInterface
 {
     public function uuid(int $division, ?string $existing = null): string
     {
-        if (!empty($existing)) {
-            $ints = unpack('L*', pack('h*', preg_replace('/[^\da-f]/', '', $existing)));
-        } else {
-            $ints = random_bytes(16);
-        }
+        $existing ??= random_bytes(16);
+        $ints = array_map('ord', unpack('L*', pack('h*', preg_replace('/[^\da-f]/', '', $existing))));
 
         $int = $division;
 

@@ -25,11 +25,12 @@ class Exact extends ExactEnvironment
     /**
      * Alias to loadAdministrationData, as exact only uses 'division'.
      * Which, imo, is a dumb way to describe it.
+     * @param bool $cache
      * @return int
      */
-    public function getDivision(): int
+    public function getDivision(bool $cache = true): int
     {
-        return $this->loadAdministrationData();
+        return $this->loadAdministrationData($cache);
     }
 
     /**
@@ -43,6 +44,7 @@ class Exact extends ExactEnvironment
      * @param bool $cached
      * @return T|null
      * @template T
+     * @throws InvalidArgumentException
      */
     public function find(
         DataSource|DataSourceMeta|string $source,
@@ -98,10 +100,12 @@ class Exact extends ExactEnvironment
             ExactConnectionManager::CONN_API_DOMAIN,
             str_replace('{division}', $this->getDivision(), $meta->endpoint)
         ));
+        print "{$uri}?";
 
         if ($criteria) {
             $visitor = new ExactVisitor($meta);
             $filter = $visitor->dispatch($criteria->getWhereExpression());
+
             if (!empty($filter)) {
                 $query = ['$filter=' . $filter];
             }
@@ -186,33 +190,47 @@ class Exact extends ExactEnvironment
     /**
      * @psalm-template T $entry
      * @param DataSource|DataSourceMeta|string $source
-     * @param Criteria|null $criteria
-     * @param bool $cached Note: Cache is on the data layer, hydration is still performed normally.
+     * @param string|Criteria|null $criteria If criteria is a string, it will be treated as THE ENTIRE QUERY PARAM (Aka: Raw mode)
+     * @param bool $cache Note: Cache is on the data layer, hydration is still performed normally.
      *                     While less performant, this does allows library updates without destroying existing caches.
      *
      *
      * @return \Generator<T>
+     * @throws InvalidArgumentException
      * @template T
      */
     public function matching(
         DataSource|DataSourceMeta|string $source,
-        ?Criteria                        $criteria = null,
-        bool                             $cached = true
+        null|string|Criteria $criteria = null,
+        bool                 $cache = true
     ): \Generator
     {
         $meta = ExactMetaDataLoader::meta($source);
 
-        if (!$criteria->isFrom($meta)) {
+        if ($criteria instanceof Criteria && !$criteria->isFrom($meta)) {
             throw new \LogicException(
                 "Not a valid criteria for {$source->name}, either use source-less criteria, or ensure the right meta is attached to the criterium."
             );
         }
 
-        $uri = $this->criteriaToUri($meta, $criteria);
+        if ($criteria instanceof Criteria) {
+            $uri = $this->criteriaToUri($meta, $criteria);
+        } else if (null === $criteria) {
+            $uri = $this->criteriaToUri($meta);
+        } else {
+            $uri = $this->manager->uriFactory->createUri(sprintf(
+                "%s://%s%s",
+                ExactConnectionManager::CONN_API_PROTOCOL,
+                ExactConnectionManager::CONN_API_DOMAIN,
+                $meta->endpoint
+            ))->withQuery($criteria);
+        }
+
+
         do {
             $cKey = 'matching::' . $this->getDivision() . '::' . sha1($source->name . "::" . $uri);
             $item = $this->manager->cache->getItem($cKey);
-            if ($cached && $item->isHit()) {
+            if ($cache && $item->isHit()) {
                 $data = $item->get();
             } else {
                 $request = $this->createRequest($uri);

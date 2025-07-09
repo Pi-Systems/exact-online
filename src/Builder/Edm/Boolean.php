@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
+use PISystems\ExactOnline\Model\TypedValue;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
 class Boolean extends EdmDataStructure implements FilterEncodableDataStructure
@@ -30,8 +31,8 @@ class Boolean extends EdmDataStructure implements FilterEncodableDataStructure
         return is_bool($value);
     }
 
-    public function encodeForFilter(mixed $value): bool|string|int|float|null
+    public function encodeForFilter(mixed $value): TypedValue
     {
-        return $value ? '1' : '0';
+        return new TypedValue(null, $value ? '1' : '0');
     }
 }

@@ -8,9 +8,9 @@ use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Command\BuildCommand;
 use PISystems\ExactOnline\Events\CredentialsChange;
 use PISystems\ExactOnline\Events\DivisionChange;
+use PISystems\ExactOnline\Events\EventDispatcherUnloading;
 use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Model\DirectExactAppConfiguration;
-use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
 use PISystems\ExactOnline\Model\OnDemandAppConfigurationLoader;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
@@ -26,7 +26,7 @@ use Psr\Http\Message\UriFactoryInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * This is a really dumbed down version of a service configuration loader.
+ * This is a really dumbed-down version of a service configuration loader.
  * [
  *      service => [
  *          priority,
@@ -63,8 +63,8 @@ return [
      */
     HttpFactory::class => [100, fn() => new HttpFactory(), null, []],
     /**
-     * Just use a simple file based cache structure.
-     * Ensure we commit at the end to close out any cache writes.
+     * Just use a simple file-based cache structure.
+     * Ensure we commit at the end to close out any cache writings.
      */
     CacheItemPoolInterface::class => [
         100,
@@ -83,7 +83,8 @@ return [
      */
     EventDispatcherInterface::class => [
         90,
-        fn() => new ExactEventDispatcher()
+        fn() => new ExactEventDispatcher(),
+        fn(ExactEventDispatcher $dispatcher) => $dispatcher->dispatch(new EventDispatcherUnloading())
     ],
     /**
      * Logger interface served by callback logic.
@@ -91,9 +92,38 @@ return [
     LoggerInterface::class => [
         90,
         fn() => new SimpleClosureLogger(
-            fn(int $level, string $message) => $level > SimpleAbstractLogger::DEBUG &&
-                printf("[%s] %s\n", SimpleClosureLogger::toLogLevel($level), $message)
-        ),
+            function (int $level, string $message) {
+                $code = function (int $level) {
+
+                    if ($level >= SimpleAbstractLogger::ERROR) {
+                        return "\033[1;31m";
+                    }
+                    if ($level >= SimpleAbstractLogger::WARNING) {
+                        return "\033[4;33m";
+                    }
+                    if (
+                        $level >= SimpleAbstractLogger::INFO &&
+                        $level <= SimpleAbstractLogger::NOTICE
+                    ) {
+                        return "\033[0;0m";
+                    }
+
+                    if ($level <= SimpleAbstractLogger::DEBUG) {
+                        return "\033[0;36m";
+                    }
+
+                    return "\033[0m";
+                };
+
+                $doColour =
+                    !isset($_ENV['COLOR_CODES']) ||
+                    $_ENV['COLOR_CODES'];
+                $prefix = $doColour ? $code($level) : '';
+                $suffix = $doColour ? "\033[0\n" : "\n";
+                printf("{$prefix}[%s] %s {$suffix}", SimpleClosureLogger::toLogLevel($level), $message);
+            }),
+        // Easily solvable using __destruct, but a lot of loggers require this to be called... don't ask why, I got no clue.
+        fn(LoggerInterface $logger) => method_exists($logger, 'flush') && $logger->flush(),
     ],
     /**
      * RequestFactory served by HttpFactory
@@ -107,7 +137,8 @@ return [
      * UriFactory served by HttpFactory
      */
     UriFactoryInterface::class => [
-        90, fn(HttpFactory $factory) => $factory,
+        90,
+        fn(HttpFactory $factory) => $factory,
         null,
         [
             'args' => [HttpFactory::class]
@@ -150,8 +181,8 @@ return [
     ],
     /**
      * And the whole reason behind everything above.
-     * This could be slices down more (Such as moving the save handler to a service)
-     * However; during dev/example running, we don't need/want a more complex structure.
+     * This could be sliced down more (Such as moving the save handler to a service).
+     * However, during dev/example running, we don't need/want a more complex structure.
      * Going any further defeats the purpose.
      */
     Exact::class => [
@@ -248,7 +279,7 @@ return [
     // These will always only take ExactConnectionManager as their second option
     // Their name should be part of their own constructor
     ...(function () {
-        // Poor mans auto-registry, no need for anything complex
+        // Poor men auto-registry, no need for anything complex
         $folder = __DIR__ . '/../src/Command';
 
         $commands = [];
@@ -265,10 +296,11 @@ return [
     })(),
     BuildCommand::class => [
         10,
-        fn() => new BuildCommand(),
+        fn(LoggerInterface $logger) => new BuildCommand($logger),
         null,
         [
             'args' => [
+                LoggerInterface::class
             ],
             'tags' => ['console.command']
         ],

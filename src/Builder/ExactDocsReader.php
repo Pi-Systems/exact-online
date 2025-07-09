@@ -2,9 +2,7 @@
 
 namespace PISystems\ExactOnline\Builder;
 
-use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\DataSourceMeta;
-use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\ExactAttributeOverridesInterface;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Cache\InvalidArgumentException;
@@ -13,6 +11,11 @@ use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Log\LoggerInterface;
 
+/**
+ * Maybe migrate this to a more mana-able reader in the future.
+ * This is currently only really relevant during dev.
+ * May also consider using an engine to generate content instead of search_replace in a '''template''' file.
+ */
 class ExactDocsReader
 {
     const string EXACT_META_CACHE = __DIR__.'/../Model/Exact/ExactMeta.json';
@@ -31,6 +34,7 @@ class ExactDocsReader
     private ?string $dataTemplateContent = null;
     private ?string $methodTemplateContent = null;
     private array $entityParseQueue = [];
+    private array $departments = [];
 
     public array $requestHeaders = [
         'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -165,9 +169,9 @@ class ExactDocsReader
 
     /**
      * @throws ClientExceptionInterface
-     * @var null|string $package If supplied, it is used to filter which pages to build. (Regex, filter is based on path)
+     * @var null|string $service If supplied, it is used to filter which pages to build. (Regex, filter is based on path)
      */
-    public function build(?string $package = null): int
+    public function build(?string $service = null): int
     {
 
         $count = 0;
@@ -183,16 +187,17 @@ class ExactDocsReader
         $items = $xpath->query('//html/body/form/table/tr[position()>1]');
 
         $this->logger->info("We found {$items->length} items");
-        $departments = [];
         foreach ($items as $item) {
             $cells = $item->getElementsByTagName('td');
 
             $department = $cells[0]->textContent;
-            $departments[$department] ??= 0;
-            $departments[$department]++;
+            $this->departments[$department] ??= 0;
+            $this->departments[$department]++;
 
-            $endpoint = trim($cells[1]->textContent);
-            $resource = trim($xpath->query('a', $cells[1])?->item(0)?->attributes?->getNamedItem('href')?->nodeValue);
+
+            $pointRef = $xpath->query('a', $cells[1])?->item(0);
+            $endpoint = trim($pointRef?->textContent);
+            $resource = trim($pointRef?->attributes?->getNamedItem('href')?->nodeValue);
             $path = trim($cells[2]->textContent);
             $methods = trim($cells[3]->textContent);
             $scope = trim($cells[5]->textContent);
@@ -210,12 +215,10 @@ class ExactDocsReader
                 $this->logger->warning("Resource for {$endpoint} not found.");
             }
 
-            if ($package && !preg_match($package, $path)) {
-                $this->logger->debug("Skipping {$path} ({$endpoint})");
+            if ($service && !preg_match($service, $department)) {
                 continue;
             }
-            $this->logger->debug("Generating {$endpoint}");
-            $this->generateClassPage($endpoint, $resource, $path, $methods, $scope);
+            $this->generateClassPage($department, $endpoint, $resource, $path, $methods, $scope);
         }
 
         $this->writeEntityData();
@@ -226,6 +229,7 @@ class ExactDocsReader
     }
 
     private function generateClassPage(
+        string $department,
         string  $endpoint,
         ?string $resource,
         string  $path,
@@ -244,8 +248,7 @@ class ExactDocsReader
                 return;
             }
 
-
-            $folders = array_map('ucfirst', explode('/', $link));
+            $folders = [$department, ...array_map('ucfirst', explode('/', $endpoint))];
             // remove the first entry, it is a repeat of the service
             $class = array_pop($folders);
             if (empty($folders)) {
@@ -263,7 +266,7 @@ class ExactDocsReader
             }
 
             $this->logger->info("Registering {$link} \n `- {$methods} \n `- {$namespace}\\{$class}\n `- {$file}");
-            $this->writeDataEndpoint($file, $class, $namespace, $endpoint, $resource, $path, $methods, $scope);
+            $this->writeDataEndpoint($department, $file, $class, $namespace, $endpoint, $resource, $path, $methods, $scope);
         }
 
 //        if (str_contains($path, 'Function Details')) {
@@ -272,7 +275,7 @@ class ExactDocsReader
 
     }
 
-    private function writeDataEndpoint(string $file, string $class, string $namespace, string $endpoint, ?string $resource, string $path, string $methods, string $scope): void
+    private function writeDataEndpoint(string $department, string $file, string $class, string $namespace, string $endpoint, ?string $resource, string $path, string $methods, string $scope): void
     {
         $this->dataTemplateContent ??= file_get_contents($this->dataTemplate);
 
@@ -306,6 +309,7 @@ class ExactDocsReader
         $content = str_replace(
             [
                 '{{namespace}}',
+                '{{department}}',
                 '{{attributes}}',
                 '{{class}}',
                 '{{endpoint}}',
@@ -317,6 +321,7 @@ class ExactDocsReader
             ],
             [
                 $namespace,
+                trim($department),
                 rtrim($attribute),
                 $class,
                 $endpoint,
@@ -329,17 +334,16 @@ class ExactDocsReader
             $this->dataTemplateContent
         );
 
-        $this->logger->debug("Writing to {$file}...");
         if (!is_dir(dirname($file))) {
-            $this->logger->debug("Creating directory...");
             @mkdir(dirname($file), 0777, true);
         }
 
+        touch($file);
+        $this->logger->debug("Writing to " . realpath($file));
         file_put_contents($file, $content);
-        $this->logger->debug("OK");
-        $this->logger->debug("Scheduling property writing");
+
         if ($resource) {
-            $this->entityParseQueue[] = [$file, $resource, $aMethods, $namespace . '\\' . $class, $endpoint];
+            $this->entityParseQueue[] = [$department, $file, $resource, $aMethods, $namespace . '\\' . $class, $endpoint];
         }
 
     }
@@ -354,7 +358,7 @@ class ExactDocsReader
         $prev = 0;
         $toWrite = [];
         // Collect everything first
-        foreach ($this->entityParseQueue as [$file, $uri, $availableMethods, $class, $endpoint]) {
+        foreach ($this->entityParseQueue as [$department, $file, $uri, $availableMethods, $class, $endpoint]) {
             $current++;
 
             $percent = round(($current / $total) * 100);
@@ -363,16 +367,17 @@ class ExactDocsReader
             }
             $prev = $percent;
 
-            $this->logger->debug("Retrieving {$uri}.");
-
+            if (!$this->localOnly) {
+                // We're not retrieving anything in local only mode, so shut up about it.
+                // It's just a cache load.
+                $this->logger->debug("Retrieving {$uri}.");
+            }
             try {
                 $page = $this->getPage($uri);
             } catch (ClientExceptionInterface) {
                 $this->logger->debug("Failed to retrieve {$uri}.");
                 continue;
             }
-            $this->logger->debug("parsing {$uri}.");
-
 
             $xpath = new \DOMXPath($page);
             $gtk = $xpath->query('//p[@id="goodToKnow"]')->item(0);
@@ -422,7 +427,23 @@ class ExactDocsReader
             }
 
             $items = $xpath->query('tr[position()>1]', $table);
-            $variables = [];
+
+            if (isset($toWrite[$endpoint])) {
+                $this->logger->error("Collision with {$file} on {$endpoint}.");
+                continue;
+            }
+
+            $documentGlobalName = $department . $endpoint;
+
+            $toWrite[$documentGlobalName] ??= [
+                'department' => $department,
+                'endpoint' => $endpoint,
+                'file' => $file,
+                'class' => $class,
+                'properties' => [],
+                'endpointDescriptions' => $endpointDescriptions
+            ];
+
             /** @var \DOMElement $item */
             foreach ($items as $item) {
                 $classesString = trim($item->getAttribute('class'));
@@ -535,14 +556,7 @@ class ExactDocsReader
                     $attributes = $this->attributeOverrides->override($prop, $attributes);
                 }
 
-                $toWrite[$endpoint] ??= [
-                    'file' => $file,
-                    'class' => $class,
-                    'properties' =>[],
-                    'endpointDescriptions' => $endpointDescriptions
-                ];
-
-                $toWrite[$endpoint]['properties'][$name] = [
+                $toWrite[$documentGlobalName]['properties'][$name] = [
                     'local' => $local,
                     'description' => $description,
                     'typeDescription' => $typeDescription,
@@ -551,19 +565,36 @@ class ExactDocsReader
             }
         }
 
-        foreach ($toWrite as $endpoint => $value) {
+        foreach ($toWrite as $documentGlobalName => $value) {
             $file = $value['file'];
             $properties = $value['properties'];
+            $this->logger->debug('Setting properties to file ' . realpath($file));
+            $this->logger->debug(PHP_EOL . ' - ' . implode(PHP_EOL . ' - ', array_keys($properties)));
 
             $variables = [];
             foreach ($properties as $name => &$property) {
 
                 if (array_key_exists('collection', $property['attributes'])) {
                     $type = $property['attributes']['collection'];
+                    $this->logger->debug('Collection requested, attempting to resolve ' . $type);
+                    $this->logger->debug('');
+                    $this->logger->debug("Available: \n - " . implode(PHP_EOL . ' - ', array_keys($toWrite)));
+                    // Try to find the class using a few tricks
                     $fullClass =
-                        $toWrite[$type]['class']
-                        ?? $toWrite[$endpoint.$type]['class'] ?? null;
+                        $toWrite[$type]['class'] // Find it in global scope (This will likely fail).
+                        ?? $toWrite[$value['department'] . $type]['class'] // Find it in the local department scope (Still likely to fail)
+                        ?? null;
 
+
+                    // Find it by scanning over all available departments with the type attached.
+                    foreach (array_keys($this->departments) as $deparment) {
+                        if (array_key_exists($deparment . $type, $toWrite)) {
+                            $fullClass = $toWrite[$deparment . $type]['class'];
+                            break;
+                        }
+                    }
+
+                    // Still not found? Hail marry attempt.
                     if (!$fullClass) {
                         // One more attempt, using CamelCased Namespace of the class... **sigh**
                         $ns = str_replace("PISystems\\ExactOnline\\Model\\Exact\\", '', substr($value['class'], strrpos($value['class'], '\\') + 1));
@@ -574,9 +605,14 @@ class ExactDocsReader
                         $fullClass = $toWrite[$test]['class'] ?? null;
                     }
 
-                    $fullClass ??= 'DataSource';
+                    // We give up, just couple it to the basic DataSource and let the user deal with it.
+                    if ($fullClass) {
+                        $fullClass = '\\' . $fullClass;
+                    } else {
+                        $fullClass = 'DataSource';
+                    }
 
-                    $property['attributes']['collection'] = 'EDM\\Collection(\\'.$fullClass.'::class, \''.$type.'\')';
+                    $property['attributes']['collection'] = 'EDM\\Collection(' . $fullClass . '::class, \'' . $type . '\')';
                 }
 
 
@@ -616,7 +652,7 @@ class ExactDocsReader
                 $value['endpointDescriptions']
             ], $content);
             file_put_contents($file, $content);
-            $this->logger->debug("Wrote {$uri}.");
+            $this->logger->debug("Wrote " . realpath($file));
         }
     }
 
@@ -631,7 +667,7 @@ class ExactDocsReader
         $this->logger->info('Constructing meta data.');
 
         $metas = [];
-        foreach ($this->entityParseQueue as [,,,$class]) {
+        foreach ($this->entityParseQueue as [, , , , $class]) {
             $meta = DataSourceMeta::createFromClass($class);
             $metas[$class] = serialize($meta);
         }

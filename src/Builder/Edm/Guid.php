@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
+use PISystems\ExactOnline\Model\TypedValue;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
 class Guid extends EdmDataStructure implements  FilterEncodableDataStructure
@@ -33,11 +34,12 @@ class Guid extends EdmDataStructure implements  FilterEncodableDataStructure
     }
 
 
-    public function encodeForFilter(mixed $value): ?string
+    public function encodeForFilter(mixed $value): ?TypedValue
     {
+
         if (null === $value) {
             return null;
         }
-        return sprintf("guid'{$value}'");
+        return new TypedValue('guid', $value);
     }
 }

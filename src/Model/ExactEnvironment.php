@@ -38,6 +38,7 @@ abstract class ExactEnvironment /*permits Exact*/
         get => $this->configuration->division;
         set {
             if ($value !== $this->configuration->division) {
+
                 $administrationSwitchEvent = new DivisionChange($this, $this->division, $value);
                 $this->manager->dispatcher->dispatch($administrationSwitchEvent);
                 if ($administrationSwitchEvent->isPropagationStopped()) {
@@ -56,10 +57,14 @@ abstract class ExactEnvironment /*permits Exact*/
     {
     }
 
-    final protected function loadAdministrationData(): int
+    final protected function loadAdministrationData(bool $cache = true): int
     {
-        if ($this->configuration->division) {
-            return $this->configuration->division;
+        if ($cache && $this->division) {
+            return $this->division;
+        }
+
+        if ($this->offline) {
+            return 0;
         }
 
         $meta = Model\System\Me::meta();
@@ -337,21 +342,29 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function sendRequest(RequestInterface $request): ResponseInterface
     {
-        $request = $request->withUri(
-            $request->getUri()->withPath(
-                str_replace([
+        // In case something manages to sneak by, there shouldn't be any, but better to be safe.
+        $path = $request->getUri()->getPath();
+        if (
+            str_contains($path, '{division}') ||
+            str_contains($path, '%7Bdivision%7D')
+        ) {
+            $request = $request->withUri(
+                $request->getUri()->withPath(
+                    str_replace([
                         '{division}', // Capture normal division, in case it never got encoded
                         '%7Bdivision%7D' // Url encoding will have likely already taken place, capture that to
                     ],
-                    $this->getDivision(),
-                    $request->getUri()->getPath()
+                        $this->getDivision(),
+                        $path
+                    )
                 )
-            )
-        );
+            );
+        }
 
         if ($this->offline) {
             throw new OfflineException($this, $request);
         }
+
         // Do not use the accessor, as it would instantiate an empty one.
         // We really do want to check if we know our limits already.
         if (null !== $this->rateLimits) {

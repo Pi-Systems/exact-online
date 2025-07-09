@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
+use PISystems\ExactOnline\Model\TypedValue;
 
 // This is not a real EDM Type
 // This is the logical result of Accounts::$Code description statement:
@@ -37,14 +38,14 @@ class UTF8CodeString extends EdmDataStructure implements FilterEncodableDataStru
         return is_string($value);
     }
 
-    public function encodeForFilter(mixed $value): string
+    public function encodeForFilter(mixed $value): ?TypedValue
     {
         if (null === $value) {
-            return '';
+            return null;
         }
 
-        return sprintf('%'.$this->length.'.'.$this->length.'s',
+        return new TypedValue(null, sprintf('%' . $this->length . '.' . $this->length . 's',
             ltrim(mb_convert_encoding($value, 'UTF-8', mb_detect_encoding($value))) // trim before sprintf, weird stuff happens if we you don't.
-        );
+        ));
     }
 }

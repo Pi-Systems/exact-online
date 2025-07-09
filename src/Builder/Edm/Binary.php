@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
+use PISystems\ExactOnline\Model\TypedValue;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
 class Binary extends EdmDataStructure implements FilterEncodableDataStructure
@@ -28,12 +29,12 @@ class Binary extends EdmDataStructure implements FilterEncodableDataStructure
         return is_scalar($value);
     }
 
-    function encodeForFilter(mixed $value): bool|string|int|float|null
+    function encodeForFilter(mixed $value): TypedValue|null
     {
         if (null === $value) {
             return null;
         }
 
-        return 'X\''.pack('H*', $value).'\'';
+        return new TypedValue('X', fn() => pack('H*', $value));
     }
 }

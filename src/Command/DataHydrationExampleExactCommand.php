@@ -20,6 +20,9 @@ class DataHydrationExampleExactCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
 
+        // Set exact to offline, if it ever has to contact the API we know we fucked up.
+        $this->exact->offline = true;
+
         $meta = Me::meta();
 // As an example, let's start with a default simple reply from exaxt.
 // The answer to a default division call (With UserID added to use as an example a bit later).

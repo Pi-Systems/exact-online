@@ -29,11 +29,11 @@ class UploadPdfFileToSalesEntryExactCommand extends Command
         $this->addOption('ctime', null, InputOption::VALUE_REQUIRED, 'Use this date instead of ctime (INT OR ATOM).');
         $this->addOption('folder', 'f', InputOption::VALUE_REQUIRED, 'The folder to upload the file to (Defaults to \'Sales\')');
         $this->addOption('category', 'c', InputOption::VALUE_REQUIRED, 'The category to upload the file to (Defaults to \'Sales\')');
-        $this->addOption('overwrite', 'o', InputOption::VALUE_NONE, 'Overwrite the file if it already exists.', false);
+        $this->addOption('overwrite', 'o', InputOption::VALUE_NONE, 'Overwrite the file if it already exists.');
     }
 
 
-    protected function execute(InputInterface $input, OutputInterface $output): bool
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $file = $input->getArgument('file');
         $id = $input->getOption('id') ?? $this->exact->uuid();
@@ -97,7 +97,7 @@ class UploadPdfFileToSalesEntryExactCommand extends Command
                 return self::INVALID;
             }
 
-            return $this->exact->update($document) ? self::SUCCESS : self::FAILURE;;
+            return $this->exact->update($document) ? self::SUCCESS : self::FAILURE;
         }
 
 

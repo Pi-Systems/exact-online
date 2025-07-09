@@ -6,6 +6,7 @@ use PISystems\ExactOnline\Builder\Exact;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 class AuthorizeExampleExactCommand extends Command
@@ -29,12 +30,13 @@ class AuthorizeExampleExactCommand extends Command
             "the callback from exact to make this automatic.\n".
             "For now, call this command back with this code as the only argument.\n"
         );
+
+        $this->addOption('refresh', 'r', InputOption::VALUE_NONE, 'Refresh the division, do not rely on the cache.');
     }
 
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-
         $authCode = $input->getArgument('authorization_code');
 
         if ($authCode) {
@@ -62,7 +64,7 @@ class AuthorizeExampleExactCommand extends Command
         }
 
         $output->writeln(
-            "Exact loaded and ready, we're using administration/organization/division <info>".$this->exact->getDivision(). "</info>"
+            "Exact loaded and ready, we're using administration/organization/division <info>" . $this->exact->getDivision(!$input->getOption('refresh')) . "</info>"
         );
         return self::SUCCESS;
     }

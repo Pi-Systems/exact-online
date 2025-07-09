@@ -2,11 +2,12 @@
 
 namespace PISystems\ExactOnline\Builder\Edm;
 
-use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
+use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
+use PISystems\ExactOnline\Model\TypedValue;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Time extends FilterEncodableDataStructure
+class Time extends EdmDataStructure implements FilterEncodableDataStructure
 {
 
     public static function getEdmType(): string
@@ -43,7 +44,7 @@ class Time extends FilterEncodableDataStructure
         return false;
     }
 
-    function encodeForFilter(mixed $value): ?string
+    function encodeForFilter(mixed $value): ?TypedValue
     {
         if (null === $value) {
             return null;
@@ -54,15 +55,13 @@ class Time extends FilterEncodableDataStructure
             $hours = floor($value / 3600);
             $minutes = floor($value / 60 % 60);
             $seconds = floor($value % 60);
-            $value = new \DateTimeInterval("PT{$hours}H{$minutes}M{$seconds}S");
+            $value = new \DateInterval("PT{$hours}H{$minutes}M{$seconds}S");
         }
 
         if (!($value instanceof \DateInterval)) {
             throw new \InvalidArgumentException('Time segment input not supported.');
         }
 
-        /** @var \DateInterval $value */
-
-        return sprintf('time\'%s\'',$value->format('PT%hH%iM%sS'));
+        return new TypedValue('time', $value->format('PT%hH%iM%sS'));
     }
 }

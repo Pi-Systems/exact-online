@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Builder\Edm;
 
 use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
+use PISystems\ExactOnline\Model\TypedValue;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
 class DateTimeOffset extends EdmDataStructure implements FilterEncodableDataStructure
@@ -36,7 +37,7 @@ class DateTimeOffset extends EdmDataStructure implements FilterEncodableDataStru
         return true;
     }
 
-    function encodeForFilter(mixed $value): ?string
+    function encodeForFilter(mixed $value): ?TypedValue
     {
         if (null === $value) {
             return null;
@@ -56,6 +57,6 @@ class DateTimeOffset extends EdmDataStructure implements FilterEncodableDataStru
             throw new \InvalidArgumentException("Expect input type to be a DateTimeInterface or an object implementing \DateTimeInterface");
         }
 
-        return sprintf('time\'%s\'',\DateTimeImmutable::createFromInterface($value)->format(self::ODATA_DATE_FORMAT));
+        return new TypedValue('time', \DateTimeImmutable::createFromInterface($value)->format(self::ODATA_DATE_FORMAT));
     }
 }

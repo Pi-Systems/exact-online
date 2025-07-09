@@ -20,14 +20,10 @@ class DataHydrationExampleExactCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
 
-// It is not technically required to have a persistent cache attached.
-// Without it, the meta-loaders internal runtime cache will still function.
-// It will, however, throw a user notice which will halt dev builds.
-//
-// The cache persistor is set in this example,
-// Note: When using the library, this is done automatically upon construction of the ConnectionManager.
         $meta = Me::meta();
-// An slightly modified reply from exact ($UserID is not part of the usual CurrentDivision call)
+// As an example, let's start with a default simple reply from exaxt.
+// The answer to a default division call (With UserID added to use as an example a bit later).
+// Slightly modified reply from exact ($UserID is not part of the usual CurrentDivision call)
 // Normally speaking, the data retrieved is already parsed to leave only the 'result'.
 // For transparency purposes, this is skipped.
         $data = json_decode(<<<EOF
@@ -91,7 +87,7 @@ EOF, true)['d']['results'][0];
 
         /**
          * By default, all exports have every property set.
-         * This can (and will) result into monstrously large serialized objects.
+         * This can (and will) result in monstrously large serialized objects.
          * The 'Me' string is easily 800+ characters long.
          * Serializing null is generally pointless, so tell the deflate/serializer to ignore them.
          */

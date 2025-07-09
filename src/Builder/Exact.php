@@ -33,32 +33,54 @@ class Exact extends ExactEnvironment
     }
 
     /**
-     * Only finding by ID is currently supported.
+     * Only finding by keyColumn is currently supported.
      * For anything more complex, please use the matching() method.
      *
      * @psalm-template T $entry
      * @param DataSource|DataSourceMeta|string $source
      * @param string $id
+     * @param Criteria|null $criteria
      * @param bool $cached
-     * @return T
+     * @return T|null
      * @template T
      */
     public function find(
         DataSource|DataSourceMeta|string $source,
         string                           $id,
+        ?Criteria                        $criteria = null,
         bool                             $cached = true
-    ): DataSource
+    ): ?DataSource
     {
         $meta = ExactMetaDataLoader::meta($source);
-        // /route(guid'uuid') works as well, but this is just more expressive.
         $generator = $this->matching(
             $meta,
-            Criteria::create()->where(
+            ($criteria ?? Criteria::create())->andWhere(
                 Criteria::expr()->eq($source->keyColumn, $id)
             ),
             $cached
         );
-        return $generator->current();
+        return $generator->current() ?: null;
+    }
+
+    /**
+     * Short-cut to find(...,Criteria...->select('ID'), ...) ? true : false
+     *
+     * @param DataSource|DataSourceMeta|string $source
+     * @param string $id
+     * @param Criteria|null $criteria
+     * @param bool $cached
+     * @return bool
+     */
+    public function exists(
+        DataSource|DataSourceMeta|string $source,
+        string                           $id,
+        ?Criteria                        $criteria = null,
+        bool                             $cached = true
+    ) : bool
+    {
+        $criteria ??= Criteria::create();
+        $criteria->select([$source->keyColumn]);
+        return null !== $this->find($source, $id, $criteria, $cached);
     }
 
     public function criteriaToUri(
@@ -306,11 +328,11 @@ class Exact extends ExactEnvironment
     public function create(DataSource $object): bool
     {
         $meta = $object::meta();
-        if (!$meta->supports(HttpMethod::POST)) {
+        if (!$meta->supports(HttpMethod::CREATE)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::POST);
         }
 
-        $data = $meta->deflate($object, HttpMethod::POST, true);
+        $data = $meta->deflate($object, HttpMethod::CREATE, true);
         $uri = $this->manager->uriFactory->createUri(
             sprintf(
                 "%s://%s%s",
@@ -319,7 +341,7 @@ class Exact extends ExactEnvironment
                 $meta->endpoint,
             )
         );
-        $request = $this->createRequest($uri, 'POST', new JsonDataStream($data));
+        $request = $this->createRequest($uri, HttpMethod::CREATE, new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
 
         if ($response->getStatusCode() !== 201) {
@@ -334,12 +356,12 @@ class Exact extends ExactEnvironment
      *          Return value is the same as the one passed.
      *
      * @param DataSource $object
-     * @return DataSource
+     * @return bool
      */
-    public function update(DataSource $object): DataSource
+    public function update(DataSource $object): bool
     {
         $meta = $object::meta();
-        if (!$meta->supports(HttpMethod::PUT)) {
+        if (!$meta->supports(HttpMethod::UPDATE)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::PUT);
         }
 
@@ -349,7 +371,7 @@ class Exact extends ExactEnvironment
             throw new \LogicException('Unable to delete object, no primary key found.');
         }
 
-        $data = $meta->deflate($object, HttpMethod::PUT);
+        $data = $meta->deflate($object, HttpMethod::UPDATE);
         $uri = $this->manager->uriFactory->createUri(sprintf(
             "%s://%s%s(guid'%s')",
             ExactConnectionManager::CONN_API_PROTOCOL,
@@ -357,18 +379,10 @@ class Exact extends ExactEnvironment
             $meta->endpoint,
             $key
         ));
-        $request = $this->createRequest($uri, 'POST', new JsonDataStream($data));
+        $request = $this->createRequest($uri, HttpMethod::UPDATE, new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
 
-        if ($response->getStatusCode() !== 200) {
-            throw new ExactResponseError('Unable to update object in Exact', $request, $response);
-        }
-        $data = $this->decodeJsonRequestResponse($request, $response);
-
-        if ($data['d']) {
-            $meta->hydrate($data['d'], $object);
-        }
-        return $object;
+        return $response->getStatusCode() > 200 && $response->getStatusCode() < 300;
     }
 
     public function delete(DataSource $object): bool
@@ -393,6 +407,7 @@ class Exact extends ExactEnvironment
         ));
 
         $request = $this->createRequest($uri, 'DELETE');
+
         return in_array(
             $this->sendAuthenticatedRequest($request)->getStatusCode(),
             // Intentionally catching 410, we want it deleted, the fact it already was is just w/e at this point.

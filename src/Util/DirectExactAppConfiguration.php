@@ -1,7 +1,9 @@
 <?php
 
-namespace PISystems\ExactOnline\Model;
+namespace PISystems\ExactOnline\Util;
 
+use PISystems\ExactOnline\Model\AddableStreamInterface;
+use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
 use PISystems\ExactOnline\Polyfill\Validation;
 
 final readonly class DirectExactAppConfiguration implements ExactAppConfigurationInterface

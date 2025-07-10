@@ -2,8 +2,8 @@
 
 namespace PISystems\ExactOnline\Command;
 
-use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Model\Exact\Financialtransaction\TransactionLines;
+use PISystems\ExactOnline\Entity\FinancialTransaction\TransactionLines;
+use PISystems\ExactOnline\Exact;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;

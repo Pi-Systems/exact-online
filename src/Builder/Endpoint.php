@@ -2,7 +2,6 @@
 
 namespace PISystems\ExactOnline\Builder;
 
-use PISystems\ExactOnline\Enum\HttpMethod;
 
 #[\Attribute(\Attribute::TARGET_CLASS | \Attribute::TARGET_PROPERTY | \Attribute::IS_REPEATABLE)]
 class Endpoint extends ExactAttribute

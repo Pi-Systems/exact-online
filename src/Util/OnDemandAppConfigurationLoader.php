@@ -1,8 +1,9 @@
 <?php
 
-namespace PISystems\ExactOnline\Model;
+namespace PISystems\ExactOnline\Util;
 
-use PISystems\ExactOnline\Polyfill\JsonDataStream;
+use PISystems\ExactOnline\Model\AddableStreamInterface;
+use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
 
 /**
  * Be careful with this information if this is leaked, not only will the app be compromised.

@@ -4,9 +4,9 @@ namespace PISystems\ExactOnline\Command;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use PISystems\ExactOnline\Builder\ExactDocsReader;
-use PISystems\ExactOnline\Model\ExactAttributeOverrides;
+use PISystems\ExactOnline\Builder\Compiler;
 use PISystems\ExactOnline\Polyfill\SimpleFileCache;
+use PISystems\ExactOnline\Util\AttributeOverrides;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Console\Command\Command;
@@ -23,11 +23,13 @@ class BuildCommand extends Command
         parent::__construct('exact:build');
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this->addOption('filter', 'f', InputOption::VALUE_REQUIRED, 'Only run build for this filter.');
         $this->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'How long for the ttl?', self::DEFAULT_TTL);
         $this->addOption('online', 'o', InputOption::VALUE_NONE, 'Use online mode');
+        $this->addOption('methodTemplate', null, InputOption::VALUE_REQUIRED, 'Use this template instead of the default one.');
+        $this->addOption('dataTemplate', null, InputOption::VALUE_REQUIRED, 'Use this template instead of the default one.');
         parent::configure();
     }
 
@@ -37,14 +39,28 @@ class BuildCommand extends Command
         $ttl = (int)$input->getOption('ttl');
         $cache = new SimpleFileCache(__DIR__.'/../Resources/ExactDocumentationCache', defaultTtl: self::DEFAULT_TTL);
         $cache->ignoreTimeout = true;
-        $reader = new ExactDocsReader(
+        $reader = new Compiler(
             $cache,
             new HttpFactory(),
             new Client(),
             $this->logger,
             $ttl,
-            attributeOverrides: new ExactAttributeOverrides()
+            attributeOverrides: new AttributeOverrides()
         );
+
+        if ($dataTemplate = $input->getOption('methodTemplate')) {
+            if (!is_file($dataTemplate) || !is_readable($dataTemplate)) {
+                throw new \InvalidArgumentException("The template file '{$dataTemplate}' does not exist or is not readable.");
+            }
+            $reader->methodTemplate = $dataTemplate;
+        }
+
+        if ($dataTemplate = $input->getOption('dataTemplate')) {
+            if (!is_file($dataTemplate) || !is_readable($dataTemplate)) {
+                throw new \InvalidArgumentException("The template file '{$dataTemplate}' does not exist or is not readable.");
+            }
+            $reader->dataTemplate = $dataTemplate;
+        }
 
         $reader->localOnly = !$input->getOption('online');
 

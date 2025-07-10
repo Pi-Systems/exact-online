@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Exceptions;
 
 use JetBrains\PhpStorm\Pure;
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 
 class MissingListenerException extends ExactException
 {
@@ -12,7 +12,7 @@ class MissingListenerException extends ExactException
         Exact $exact,
         string $message = "",
         int $code = 0,
-        ?Throwable $previous = null)
+        ?\Throwable $previous = null)
     {
         parent::__construct($exact, $message, $code, $previous);
     }

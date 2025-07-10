@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Command;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;

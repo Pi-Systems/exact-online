@@ -8,7 +8,8 @@
 ###< Defaults ###
 
 ###> ExactOnline ###
-/src/Model/Exact
+/src/Entity
+!/src/Entity/README.md
 /src/Resources/ExactDocumentationCache
 /dev/.env.local
 ###< ExactOnline ###

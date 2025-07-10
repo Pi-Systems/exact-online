@@ -15,7 +15,7 @@ class UTF8CodeString extends EdmDataStructure implements FilterEncodableDataStru
 {
     public function __construct(public readonly int $length = 18)
     {
-
+        parent::__construct($this->length);
     }
 
     public static function getEdmType(): string

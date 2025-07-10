@@ -2,9 +2,9 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 
-class FileUpload extends AbstractConfiguredExactEvent
+class FileUpload extends AbstractConfiguredEvent
 {
 
     public ?string $denyReason {

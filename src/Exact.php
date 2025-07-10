@@ -1,6 +1,6 @@
 <?php
 
-namespace PISystems\ExactOnline\Builder;
+namespace PISystems\ExactOnline;
 
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
@@ -8,9 +8,9 @@ use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\ExactEnvironment;
-use PISystems\ExactOnline\Model\ExactMetaDataLoader;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
+use PISystems\ExactOnline\Util\MetaDataLoader;
 use Psr\Cache\InvalidArgumentException;
 
 /**
@@ -49,7 +49,7 @@ class Exact extends ExactEnvironment
         bool                             $cached = true
     ): ?DataSource
     {
-        $meta = ExactMetaDataLoader::meta($source);
+        $meta = MetaDataLoader::meta($source);
         $generator = $this->matching(
             $meta,
             ($criteria ?? Criteria::create())->andWhere(
@@ -76,7 +76,7 @@ class Exact extends ExactEnvironment
         bool                             $cached = true
     ): bool
     {
-        $source = ExactMetaDataLoader::meta($source);
+        $source = MetaDataLoader::meta($source);
 
         $criteria ??= Criteria::create();
         $criteria->select([$source->keyColumn]);
@@ -100,7 +100,7 @@ class Exact extends ExactEnvironment
         bool                 $cache = true
     ): \Generator
     {
-        $source = ExactMetaDataLoader::meta($source);
+        $source = MetaDataLoader::meta($source);
 
         if ($criteria instanceof Criteria && !$criteria->isFrom($source)) {
             throw new \LogicException(
@@ -166,7 +166,7 @@ class Exact extends ExactEnvironment
         bool                             $cached = true
     )
     {
-        $meta = ExactMetaDataLoader::meta($source);
+        $meta = MetaDataLoader::meta($source);
         if (is_array($criteria)) {
 
             if (array_is_list($criteria)) {
@@ -216,7 +216,7 @@ class Exact extends ExactEnvironment
         DataSource|DataSourceMeta|string $source
     ): int
     {
-        $meta = ExactMetaDataLoader::meta($source);
+        $meta = MetaDataLoader::meta($source);
 
         $uri = $this->criteriaToUri($meta, new Criteria());
         // :/ And people praise odata? What a load of...

@@ -3,6 +3,7 @@
 namespace PISystems\ExactOnline\Model;
 
 use GuzzleHttp\Psr7\Uri;
+use PISystems\ExactOnline\Entity\System\Me;
 use PISystems\ExactOnline\Enum\CredentialsType;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Events\CredentialsChange;
@@ -16,10 +17,10 @@ use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Exceptions\OfflineException;
 use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
-use PISystems\ExactOnline\Model\Exact as Model;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Model\Expr\ExactVisitor;
 use PISystems\ExactOnline\Polyfill\FormStream;
+use PISystems\ExactOnline\Util\MetaDataLoader;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -34,7 +35,7 @@ abstract class ExactEnvironment /*permits Exact*/
 
     public bool $offline = false;
 
-    private ?ExactRateLimits $rateLimits = null;
+    private ?RateLimits $rateLimits = null;
 
     public ?int $division = null {
         get => $this->configuration->division;
@@ -53,16 +54,16 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final public function __construct(
         #[\SensitiveParameter]
-        private readonly ExactRuntimeConfiguration $configuration,
-        protected ExactConnectionManager           $manager,
-        public string $language = 'nl-NL,en;q=0.9'
+        private readonly RuntimeConfiguration $configuration,
+        protected ExactConnectionManager      $manager,
+        public string                         $language = 'nl-NL,en;q=0.9'
     )
     {
     }
 
     final public function getUri(DataSource|DataSourceMeta|string $source): Uri
     {
-        $source = ExactMetaDataLoader::meta($source);
+        $source = MetaDataLoader::meta($source);
 
         $endpoint = $source->endpoint;
         if (str_contains($endpoint, '{division}')) {
@@ -82,7 +83,7 @@ abstract class ExactEnvironment /*permits Exact*/
             return 0;
         }
 
-        $meta = Model\System\Me::meta();
+        $meta = Me::meta();
         $uri = $this
             ->getUri($meta)
             ->withQuery('$select=CurrentDivision');
@@ -92,7 +93,7 @@ abstract class ExactEnvironment /*permits Exact*/
         $content = $this->decodeResponseToJson($request, $response);
         $data = $this->getDataFromRawData($content);
 
-        /** @var Model\System\Me $me */
+        /** @var Me $me */
         $me = $meta->hydrate(reset($data));
 
         if (!$me->CurrentDivision) {
@@ -496,12 +497,12 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function updateRateLimits(ResponseInterface $response): void
     {
-        $this->rateLimits??= ExactRateLimits::createFromResponse($this, $response);
+        $this->rateLimits ??= RateLimits::createFromResponse($this, $response);
     }
 
-    final public function getRateLimits(): ExactRateLimits
+    final public function getRateLimits(): RateLimits
     {
-        return $this->rateLimits ??= ExactRateLimits::createFromLimits($this);
+        return $this->rateLimits ??= RateLimits::createFromLimits($this);
     }
 
     final protected function decodeResponseToJson(

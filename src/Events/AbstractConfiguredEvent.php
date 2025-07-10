@@ -2,13 +2,13 @@
 
 namespace PISystems\ExactOnline\Events;
 
+use PISystems\ExactOnline\Exact;
 use PISystems\ExactOnline\Model\Event;
 
-class EventDispatcherUnloading extends Event
+abstract class AbstractConfiguredEvent extends Event
 {
-
     public function __construct(
-        public readonly \DateTimeImmutable $time = new \DateTimeImmutable()
+        public readonly Exact $exact
     )
     {
 

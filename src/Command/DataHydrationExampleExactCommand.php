@@ -2,9 +2,9 @@
 
 namespace PISystems\ExactOnline\Command;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Entity\System\Me;
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\Model\Exact\System\Me;
+use PISystems\ExactOnline\Exact;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;

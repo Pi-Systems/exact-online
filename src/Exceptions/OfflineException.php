@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Exceptions;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Message\RequestInterface;
 

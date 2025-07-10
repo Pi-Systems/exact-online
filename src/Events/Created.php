@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Events;
 
-class Created extends AbstractConfiguredExactEvent
+class Created extends AbstractConfiguredEvent
 {
 
 }

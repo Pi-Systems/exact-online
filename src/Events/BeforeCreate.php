@@ -2,14 +2,14 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Model\ExactEvent;
+use PISystems\ExactOnline\Model\Event;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 use Psr\Log\LoggerInterface;
 
-class BeforeCreate extends ExactEvent
+class BeforeCreate extends Event
 {
 
     public function __construct(

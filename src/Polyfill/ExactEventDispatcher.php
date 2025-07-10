@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Polyfill;
 
 use PISystems\ExactOnline\Events\FileUpload;
-use PISystems\ExactOnline\Model\ExactEvent;
+use PISystems\ExactOnline\Model\Event;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\EventDispatcher\ListenerProviderInterface;
 
@@ -104,7 +104,7 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
             throw new \LogicException("Cannot add listeners, the dispatcher has been locked.");
         }
 
-        if (!is_a($event, ExactEvent::class, true)) {
+        if (!is_a($event, Event::class, true)) {
             throw new \InvalidArgumentException("Event must be an instance of ExactEvent");
         }
 
@@ -116,7 +116,7 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
 
     public function dispatch(object $event) : object
     {
-        if (!$event instanceof ExactEvent) {
+        if (!$event instanceof Event) {
             throw new \InvalidArgumentException("Event must be an instance of ExactEvent");
         }
 
@@ -133,7 +133,7 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
 
     public function hasListenersForEvent(object|string $event): bool
     {
-        $class = $event instanceof ExactEvent ? $event::class : $event;
+        $class = $event instanceof Event ? $event::class : $event;
         return null !== $this->listeners[$class] && !empty($this->listeners[$event::class]);
     }
 

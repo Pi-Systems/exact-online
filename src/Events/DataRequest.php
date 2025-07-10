@@ -2,11 +2,11 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 use PISystems\ExactOnline\Model\DataSource;
 use Psr\Http\Message\RequestInterface;
 
-class DataRequest extends AbstractConfiguredExactEvent
+class DataRequest extends AbstractConfiguredEvent
 {
     public function __construct(
         Exact $exact,

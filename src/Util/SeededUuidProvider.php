@@ -1,6 +1,8 @@
 <?php
 
-namespace PISystems\ExactOnline\Model;
+namespace PISystems\ExactOnline\Util;
+
+use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 
 class SeededUuidProvider implements SeededUuidProviderInterface
 {

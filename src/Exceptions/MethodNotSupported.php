@@ -2,10 +2,8 @@
 
 namespace PISystems\ExactOnline\Exceptions;
 
-use JetBrains\PhpStorm\Pure;
-use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\Model\DataSource;
+use PISystems\ExactOnline\Exact;
 
 class MethodNotSupported extends ExactException
 {

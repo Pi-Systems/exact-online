@@ -2,11 +2,11 @@
 
 namespace PISystems\ExactOnline\Command;
 
-use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Model\Exact\Crm\Accounts;
-use PISystems\ExactOnline\Model\Exact\Financial\GLAccounts;
-use PISystems\ExactOnline\Model\Exact\Salesentry\SalesEntries;
-use PISystems\ExactOnline\Model\Exact\Salesentry\SalesEntryLines;
+use PISystems\ExactOnline\Entity\CRM\Accounts;
+use PISystems\ExactOnline\Entity\Financial\GLAccounts;
+use PISystems\ExactOnline\Entity\SalesEntry\SalesEntries;
+use PISystems\ExactOnline\Entity\SalesEntry\SalesEntryLines;
+use PISystems\ExactOnline\Exact;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Polyfill\Validation;
 use Symfony\Component\Console\Command\Command;

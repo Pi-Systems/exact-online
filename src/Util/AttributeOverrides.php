@@ -1,14 +1,15 @@
 <?php
 
-namespace PISystems\ExactOnline\Model;
+namespace PISystems\ExactOnline\Util;
 
-use PISystems\ExactOnline\Model\Exact\Crm\Accounts as CRMAccounts;
-use PISystems\ExactOnline\Model\Exact\Bulk\CRM\Accounts as BulkCRMAccounts;
-use PISystems\ExactOnline\Model\Exact\Sales\SalesPriceListLinkedAccounts;
-use PISystems\ExactOnline\Model\Exact\Sync\CRM\Accounts as SyncCRMAccounts;
+use PISystems\ExactOnline\Entity\Bulk\CRM\Accounts as BulkCRMAccounts;
+use PISystems\ExactOnline\Entity\CRM\Accounts as CRMAccounts;
+use PISystems\ExactOnline\Entity\Sales\SalesPriceListLinkedAccounts;
+use PISystems\ExactOnline\Entity\Sync\CRM\Accounts as SyncCRMAccounts;
+use PISystems\ExactOnline\Model\ExactAttributeOverridesInterface;
 
 
-class ExactAttributeOverrides implements ExactAttributeOverridesInterface
+class AttributeOverrides implements ExactAttributeOverridesInterface
 {
     /**
      * By default, the existing keys are:

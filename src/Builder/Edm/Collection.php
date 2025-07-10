@@ -5,10 +5,10 @@ namespace PISystems\ExactOnline\Builder\Edm;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\EdmDataStructure;
 use PISystems\ExactOnline\Model\EdmEncodableDataStructure;
-use PISystems\ExactOnline\Model\ExactMetaDataLoader;
+use PISystems\ExactOnline\Util\MetaDataLoader;
 
 #[\Attribute(flags: \Attribute::TARGET_PROPERTY)]
-class Collection extends EdmDataStructure implements  EdmEncodableDataStructure
+class Collection extends EdmDataStructure implements EdmEncodableDataStructure
 {
     private ?DataSourceMeta $targetMeta = null;
 
@@ -18,7 +18,7 @@ class Collection extends EdmDataStructure implements  EdmEncodableDataStructure
         public bool $deflateSkipNull = true
     )
     {
-
+        parent::__construct($this->target, $this->globalName, $this->deflateSkipNull);
     }
     public static function getEdmType(): string
     {
@@ -42,7 +42,7 @@ class Collection extends EdmDataStructure implements  EdmEncodableDataStructure
 
     public function encode(mixed $value): array
     {
-        $targetMeta = $this->targetMeta ??= ExactMetaDataLoader::meta($this->target);
+        $targetMeta = $this->targetMeta ??= MetaDataLoader::meta($this->target);
 
         $conversion = [];
         foreach ($value ?? [] as $item) {
@@ -54,7 +54,7 @@ class Collection extends EdmDataStructure implements  EdmEncodableDataStructure
 
     public function decode(array|float|bool|int|string|null $value): array
     {
-        $targetMeta = $this->targetMeta ??= ExactMetaDataLoader::meta($this->target);
+        $targetMeta = $this->targetMeta ??= MetaDataLoader::meta($this->target);
 
         $conversion = [];
         foreach ($value as $item) {

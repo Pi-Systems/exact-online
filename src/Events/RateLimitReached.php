@@ -2,15 +2,14 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use JetBrains\PhpStorm\Pure;
-use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Model\ExactEvent;
-use PISystems\ExactOnline\Model\ExactRateLimits;
+use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\Event;
+use PISystems\ExactOnline\Model\RateLimits;
 use Psr\EventDispatcher\StoppableEventInterface;
 
-class RateLimitReached extends ExactEvent implements StoppableEventInterface
+class RateLimitReached extends Event implements StoppableEventInterface
 {
-    private bool $propagationStopped = false;
+    protected bool $propagationStopped = false;
 
     /**
      * Calling this means "we've dealt with it, shut up and continue".
@@ -26,8 +25,8 @@ class RateLimitReached extends ExactEvent implements StoppableEventInterface
     }
 
     public function __construct(
-        Exact                           $exact,
-        public readonly ExactRateLimits $dailyLimits,
+        Exact                      $exact,
+        public readonly RateLimits $dailyLimits,
     )
     {
     }

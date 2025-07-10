@@ -1,7 +1,8 @@
 <?php
 
-namespace PISystems\ExactOnline\Model;
+namespace PISystems\ExactOnline\Util;
 
+use PISystems\ExactOnline\Model\Event;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use Psr\EventDispatcher\StoppableEventInterface;
 
@@ -12,7 +13,7 @@ use Psr\EventDispatcher\StoppableEventInterface;
  * the wrapped listener.
  * Use this only if you trust the wrapped dispatcher.
  */
-class ExactWrappedEventDispatcher extends ExactEventDispatcher
+class WrappedEventDispatcher extends ExactEventDispatcher
 {
     private array $mocks = [];
 
@@ -25,6 +26,7 @@ class ExactWrappedEventDispatcher extends ExactEventDispatcher
         bool $allowReflectionChecking = true
     )
     {
+        parent::__construct();
     }
 
     public function dispatch(object $event) : object
@@ -49,7 +51,7 @@ class ExactWrappedEventDispatcher extends ExactEventDispatcher
         if (is_string($event)) {
 
             // We cannot verify this, don't even try.
-            if (!is_a($event, ExactEvent::class, true)) {
+            if (!is_a($event, Event::class, true)) {
                 return false;
             }
 

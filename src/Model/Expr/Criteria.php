@@ -6,7 +6,7 @@ use Doctrine\Common\Collections\Criteria as BaseCriteria;
 use Doctrine\Common\Collections\Expr\Expression;
 use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\DataSourceMeta;
-use PISystems\ExactOnline\Model\ExactMetaDataLoader;
+use PISystems\ExactOnline\Util\MetaDataLoader;
 
 
 /**
@@ -92,7 +92,7 @@ class Criteria extends BaseCriteria
         public bool    $inlineCount = false
     )
     {
-        $this->meta = $source ? ExactMetaDataLoader::meta($source) : null;
+        $this->meta = $source ? MetaDataLoader::meta($source) : null;
         $this->selection = $selection;
         $this->expansion = $expansion;
 
@@ -112,7 +112,7 @@ class Criteria extends BaseCriteria
         null|string|DataSource|DataSourceMeta $source = null
     ) : static
     {
-        $this->meta = ExactMetaDataLoader::meta($source);
+        $this->meta = MetaDataLoader::meta($source);
         return $this;
     }
 
@@ -122,7 +122,7 @@ class Criteria extends BaseCriteria
     {
         if (null === $this->meta) { return true; } // This criteria matches everything, so of-course we match
 
-        return ExactMetaDataLoader::meta($source)->name === $this->meta->name;
+        return MetaDataLoader::meta($source)->name === $this->meta->name;
     }
 
     public static function create(
@@ -146,7 +146,7 @@ class Criteria extends BaseCriteria
         null|string|DataSource|DataSourceMeta $source = null,
     ): ExpressionBuilder
     {
-        $meta = $source ? ExactMetaDataLoader::meta($source) : null;
+        $meta = $source ? MetaDataLoader::meta($source) : null;
 
         if (null === $meta) {
             return self::$expressionBuilder ??= new ExpressionBuilder();

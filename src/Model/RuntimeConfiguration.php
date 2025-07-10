@@ -6,7 +6,7 @@ use GuzzleHttp\Exception\RequestException;
 use PISystems\ExactOnline\Polyfill\FormStream;
 use Psr\Http\Message\RequestInterface;
 
-class ExactRuntimeConfiguration
+class RuntimeConfiguration
 {
     /**
      * @var int This is 30 seconds by Exacts api standards

@@ -3,7 +3,7 @@
 namespace PISystems\ExactOnline\Exceptions;
 
 use JetBrains\PhpStorm\Pure;
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 
 abstract class ExactException extends \RuntimeException
 {

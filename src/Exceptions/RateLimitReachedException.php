@@ -2,8 +2,8 @@
 
 namespace PISystems\ExactOnline\Exceptions;
 
-use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Events\RateLimitReached;
+use PISystems\ExactOnline\Exact;
 
 class RateLimitReachedException extends ExactException
 {

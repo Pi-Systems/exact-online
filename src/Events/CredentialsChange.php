@@ -2,14 +2,14 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Model\ExactEvent;
+use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\Event;
 use PISystems\ExactOnline\Model\ExactOrganizationalConfigurationalData;
 
 /**
  * Fired if no accessToken is available.
  */
-class CredentialsChange extends ExactEvent
+class CredentialsChange extends Event
 {
     private bool $isSuccess = false;
 

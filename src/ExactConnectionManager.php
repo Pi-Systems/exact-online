@@ -2,16 +2,15 @@
 
 namespace PISystems\ExactOnline;
 
-use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Events\BeforeCreate;
 use PISystems\ExactOnline\Events\Created;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
-use PISystems\ExactOnline\Model\ExactRuntimeConfiguration;
-use PISystems\ExactOnline\Model\ExactWrappedEventDispatcher;
-use PISystems\ExactOnline\Model\SeededUuidProvider;
+use PISystems\ExactOnline\Model\RuntimeConfiguration;
 use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\Validation;
+use PISystems\ExactOnline\Util\SeededUuidProvider;
+use PISystems\ExactOnline\Util\WrappedEventDispatcher;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Client\ClientInterface;
@@ -34,7 +33,7 @@ class ExactConnectionManager
     public const string USER_AGENT = 'PISystems/ExactOnline';
 
     private \WeakMap $instances;
-    public readonly ExactEventDispatcher|ExactWrappedEventDispatcher $dispatcher;
+    public readonly ExactEventDispatcher|WrappedEventDispatcher $dispatcher;
     public readonly SeededUuidProviderInterface $uuidProvider;
 
     public function __construct(
@@ -51,7 +50,7 @@ class ExactConnectionManager
         if ($dispatcher instanceof ExactEventDispatcher) {
             $this->dispatcher = $dispatcher;
         } else {
-            $this->dispatcher = new ExactWrappedEventDispatcher($dispatcher);
+            $this->dispatcher = new WrappedEventDispatcher($dispatcher);
         }
         $this->instances = new \WeakMap();
         $this->uuidProvider ??= new SeededUuidProvider();
@@ -63,9 +62,9 @@ class ExactConnectionManager
         ?\DateTimeInterface $accessTokenExpiry,
         ?string             $refreshToken,
         ?int                $division = null,
-    ): ExactRuntimeConfiguration
+    ): RuntimeConfiguration
     {
-        return new ExactRuntimeConfiguration(
+        return new RuntimeConfiguration(
             exactAppConfiguration: $this->appConfiguration,
             division: $division,
             organizationAuthorizationCode: $authorizationCode,
@@ -146,14 +145,14 @@ class ExactConnectionManager
     }
 
     /**
-     * @param ExactRuntimeConfiguration $configuration
+     * @param RuntimeConfiguration $configuration
      * @param string $language
      * @return Exact
      */
     public function create(
         #[\SensitiveParameter]
-        ExactRuntimeConfiguration $configuration,
-        string $language = 'nl-NL,en;q=0.9'
+        RuntimeConfiguration $configuration,
+        string               $language = 'nl-NL,en;q=0.9'
     ): Exact
     {
         // There should be no more mutations in the dispatcher.

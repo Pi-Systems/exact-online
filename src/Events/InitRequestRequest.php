@@ -2,8 +2,8 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Enum\HttpMethod;
+use PISystems\ExactOnline\Exact;
 use Psr\Http\Message\RequestInterface;
 
 class InitRequestRequest extends AbstractRequestEvent

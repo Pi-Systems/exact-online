@@ -2,10 +2,10 @@
 
 namespace PISystems\ExactOnline\Command;
 
-use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Model\Exact\Documents\DocumentAttachments;
-use PISystems\ExactOnline\Model\Exact\Documents\Documents;
-use PISystems\ExactOnline\Model\Exact\SalesEntry\SalesEntries;
+use PISystems\ExactOnline\Entity\Documents\DocumentAttachments;
+use PISystems\ExactOnline\Entity\Documents\Documents;
+use PISystems\ExactOnline\Entity\SalesEntry\SalesEntries;
+use PISystems\ExactOnline\Exact;
 use PISystems\ExactOnline\Model\Expr\Criteria;
 use PISystems\ExactOnline\Polyfill\Validation;
 use Symfony\Component\Console\Command\Command;

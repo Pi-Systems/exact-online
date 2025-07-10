@@ -4,7 +4,7 @@ namespace PISystems\ExactOnline\Model;
 
 use Psr\EventDispatcher\StoppableEventInterface;
 
-class ExactEvent implements StoppableEventInterface
+class Event implements StoppableEventInterface
 {
     /** @noinspection PhpGetterAndSetterCanBeReplacedWithPropertyHooksInspection No, it can't, it's part of the interface. */
     protected bool $propagationStopped = false;

@@ -2,10 +2,10 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 use Psr\Http\Message\RequestInterface;
 
-abstract class AbstractRequestEvent extends AbstractConfiguredExactEvent
+abstract class AbstractRequestEvent extends AbstractConfiguredEvent
 {
     public function __construct(
         Exact $exact,

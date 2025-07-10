@@ -15,7 +15,7 @@ class Single extends EdmDataStructure
         public int $scale = 10,
     )
     {
-
+        parent::__construct($this->precision, $this->scale);
     }
 
     public static function getEdmType(): string

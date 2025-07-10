@@ -19,7 +19,7 @@ class Decimal extends EdmDataStructure implements EdmEncodableDataStructure
         public int $scale = 10,
     )
     {
-
+        parent::__construct($this->precision, $this->scale);
     }
 
     public static function getLocalType(): string

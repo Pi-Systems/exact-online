@@ -2,9 +2,9 @@
 
 namespace PISystems\ExactOnline\Events;
 
-use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Exact;
 
-class DivisionChange extends AbstractConfiguredExactEvent
+class DivisionChange extends AbstractConfiguredEvent
 {
 
     /**

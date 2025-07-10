@@ -16,9 +16,9 @@ use Psr\Log\LoggerInterface;
  * This is currently only really relevant during dev.
  * May also consider using an engine to generate content instead of search_replace in a '''template''' file.
  */
-class ExactDocsReader
+class Compiler
 {
-    const string EXACT_META_CACHE = __DIR__.'/../Model/Exact/ExactMeta.json';
+    const string EXACT_META_CACHE = __DIR__ . '/../Entity/ExactMeta.json';
 
     const int PAGE_SIZE_DEFAULT = 60;
     const int PAGE_SIZE_SYNC_AND_BULK = 1000;
@@ -59,7 +59,7 @@ class ExactDocsReader
         protected readonly LoggerInterface         $logger,
         // The contents of this will not expire that quickly.
         public int                        $expirationTime = 5 * 24 * 60 * 60,
-        public string                     $targetDirectory = __DIR__ . '/../Model/Exact' {
+        public string $targetDirectory = __DIR__ . '/../Entity' {
             set => str_ends_with($value, '/') ? $value : $value . '/';
         },
         public string                     $dataTemplate = __DIR__ . '/../Resources/DataTemplate.phps' {
@@ -223,7 +223,7 @@ class ExactDocsReader
 
         $this->writeEntityData();
         $metas = $this->buildMeta();
-        file_put_contents(self::EXACT_META_CACHE, json_encode($metas), JSON_PRETTY_PRINT);
+        file_put_contents(self::EXACT_META_CACHE, json_encode($metas, JSON_PRETTY_PRINT));
         $this->cache->commit();
         return $count;
     }
@@ -256,7 +256,7 @@ class ExactDocsReader
                 // /me is the only one that matches this odd case at the time of writing.
                 $folders[] = 'System';
             }
-            $namespace = 'PISystems\\ExactOnline\\Model\Exact\\' . implode('\\', $folders);
+            $namespace = 'PISystems\\ExactOnline\\Entity\\' . implode('\\', $folders);
             $folder = $this->targetDirectory . '/' . implode('/', $folders);
             $file = $folder . '/' . $class . '.php';
 
@@ -475,7 +475,7 @@ class ExactDocsReader
                 } elseif (str_contains($typeAnnotation, 'Exact.Web.')) {
                     // We have no damn clue, probably a string.
                     $local = 'mixed';
-                    $attributes['exact_web'] = "EDM\\ExactWeb('{$typeAnnotation}')";
+                    $attributes['exact_web'] = "Exact\\ExactWeb('{$typeAnnotation}')";
                     $typeDescription = "Unknown ExactWeb type {$typeAnnotation}";
                 } else {
                     $ns = substr($class, strrpos($class, '\\') + 1);
@@ -669,7 +669,7 @@ class ExactDocsReader
         $metas = [];
         foreach ($this->entityParseQueue as [, , , , $class]) {
             $meta = DataSourceMeta::createFromClass($class);
-            $metas[$class] = serialize($meta);
+            $metas[$class] = $meta->toArray();
         }
         return $metas;
     }

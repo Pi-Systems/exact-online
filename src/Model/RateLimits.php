@@ -2,12 +2,12 @@
 
 namespace PISystems\ExactOnline\Model;
 
-use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Events\RateLimitReached;
+use PISystems\ExactOnline\Exact;
 use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
 use Psr\Http\Message\ResponseInterface;
 
-class ExactRateLimits
+class RateLimits
 {
     public \DateTimeImmutable $lastRefresh;
     public \DateTimeImmutable $dailyResetTime;
@@ -39,7 +39,7 @@ class ExactRateLimits
         int   $dailyRateLimit = 5000,
         int   $minuteRateLimit = 60,
         int   $dailyResetRate = 1000,
-    ): ExactRateLimits
+    ): RateLimits
     {
         return new self(
             $exact,

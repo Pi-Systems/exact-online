@@ -12,7 +12,7 @@ class FinancialTransactionLinesQueryExampleExactCommand extends Command
 {
     public function __construct(private readonly Exact $exact)
     {
-        parent::__construct('exact:examples:financial-transaction-lines-query');
+        parent::__construct('exact:financial-transaction-lines-query');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

@@ -2,14 +2,94 @@
 
 namespace PISystems\ExactOnline\Polyfill;
 
+use PISystems\ExactOnline\Events\FileUpload;
 use PISystems\ExactOnline\Model\ExactEvent;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\EventDispatcher\ListenerProviderInterface;
 
 class ExactEventDispatcher implements EventDispatcherInterface, ListenerProviderInterface
 {
-    private array $listeners = [];
+    private array $listeners;
     private bool $locked = false;
+
+    public readonly array $extensions;
+    public readonly bool $blacklist;
+
+    public function __construct()
+    {
+        $this->listeners = $this->getDefaultEvents();
+        $validationList = $_ENV['EXACT_FILE_EXTENSIONS'] ?? '';
+
+        if (!empty($validationList)) {
+            if (str_starts_with($validationList, '!')) {
+                $this->blacklist = true;
+                $validationList = substr($validationList, 1);
+            } else {
+                $this->blacklist = false;
+            }
+
+            if (!empty($validationList)) {
+                $this->extensions = array_map('trim', explode(',', $validationList));
+                return;
+            }
+        } else {
+            $this->blacklist = false;
+        }
+        $this->extensions = [];
+    }
+
+    public function getDefaultEvents(): array
+    {
+        return [
+            FileUpload::class => [
+                $this->validateFileExtension(...),
+                $this->validateFileSize(...)
+            ],
+        ];
+    }
+
+    public function validateFileExtension(FileUpload $event): void
+    {
+        if (empty($this->extensions)) {
+            if ($this->blacklist) {
+                return;
+            }
+        }
+
+        $found = in_array(
+            $event->file->getExtension(),
+            $this->extensions,
+        );
+
+        if ($this->blacklist ? $found : !$found) {
+            if ($this->blacklist) {
+                $event->deny("File extension is not allowed. Disallowed extensions are: " . implode(", ", $this->extensions) . ".");
+                return;
+            }
+
+            if (empty($this->extensions)) {
+                $event->deny("File extension is not allowed, no file extensions are whitelisted.");
+                return;
+            }
+            $event->deny("File extension is not allowed. Allowed extensions are: " . implode(", ", $this->extensions) . ".");
+        }
+
+
+    }
+
+    public function validateFileSize(FileUpload $event): void
+    {
+        $max = $_ENV['EXACT_FILE_MAX_SIZE'] ?? 0;
+
+        // Disabled
+        if ($max < 0) {
+            return;
+        }
+
+        if ($event->file->getSize() > $max) {
+            $event->deny("File size is too large. Maximum size is {$max} bytes.");
+        }
+    }
 
     /**
      * This does not deal with priorities, handle those before we get this far.

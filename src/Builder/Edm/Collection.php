@@ -45,7 +45,7 @@ class Collection extends EdmDataStructure implements  EdmEncodableDataStructure
         $targetMeta = $this->targetMeta ??= ExactMetaDataLoader::meta($this->target);
 
         $conversion = [];
-        foreach ($value as $item) {
+        foreach ($value ?? [] as $item) {
             $conversion[] = $targetMeta->deflate($item, skipNull: $this->deflateSkipNull);
         }
 

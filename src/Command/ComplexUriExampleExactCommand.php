@@ -13,7 +13,7 @@ class ComplexUriExampleExactCommand extends Command
 {
     public function __construct(private readonly Exact $exact)
     {
-        parent::__construct('exact:examples:complex-uri');
+        parent::__construct('exact:complex-uri');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

@@ -13,7 +13,7 @@ class SalesInvoiceQueryExampleExchangeCommand extends Command
 {
     public function __construct(private readonly Exact $exact)
     {
-        parent::__construct('exact:examples:sales-invoice-query');
+        parent::__construct('exact:sales-invoice-query');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

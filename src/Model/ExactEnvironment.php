@@ -2,20 +2,23 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Enum\CredentialsType;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Events\CredentialsChange;
 use PISystems\ExactOnline\Events\DivisionChange;
+use PISystems\ExactOnline\Events\FileUpload;
 use PISystems\ExactOnline\Events\RateLimitReached;
 use PISystems\ExactOnline\Events\RefreshCredentials;
 use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Exceptions\ExactCommunicationError;
-use PISystems\ExactOnline\Exceptions\ExactEmptyResponseError;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
-use PISystems\ExactOnline\Exceptions\ExactResponseNOKError;
+use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Exceptions\OfflineException;
 use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
 use PISystems\ExactOnline\Model\Exact as Model;
+use PISystems\ExactOnline\Model\Expr\Criteria;
+use PISystems\ExactOnline\Model\Expr\ExactVisitor;
 use PISystems\ExactOnline\Polyfill\FormStream;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Message\RequestInterface;
@@ -23,8 +26,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UriInterface;
 
-/*sealed*/
-
+/*sealed*/// All methods in this class are final, the class itself is not.
 abstract class ExactEnvironment /*permits Exact*/
 {
 
@@ -53,8 +55,21 @@ abstract class ExactEnvironment /*permits Exact*/
         #[\SensitiveParameter]
         private readonly ExactRuntimeConfiguration $configuration,
         protected ExactConnectionManager           $manager,
+        public string $language = 'nl-NL,en;q=0.9'
     )
     {
+    }
+
+    final public function getUri(DataSource|DataSourceMeta|string $source): Uri
+    {
+        $source = ExactMetaDataLoader::meta($source);
+
+        $endpoint = $source->endpoint;
+        if (str_contains($endpoint, '{division}')) {
+            $endpoint = str_replace('{division}', $this->division, $endpoint);
+        }
+
+        return $this->manager->apiBaseUri()->withPath($endpoint);
     }
 
     final protected function loadAdministrationData(bool $cache = true): int
@@ -68,16 +83,16 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         $meta = Model\System\Me::meta();
-        $uri = $this->manager->uriFactory->createUri(
-            $this->manager->apiBaseUri()
-                ->withPath($meta->endpoint)
-                ->withQuery('$select=CurrentDivision')
-        );
+        $uri = $this
+            ->getUri($meta)
+            ->withQuery('$select=CurrentDivision');
 
         $request = $this->createRequest($uri);
         $response = $this->sendAuthenticatedRequest($request);
-        $data = $this->decodeJsonRequestResponse($request, $response);
+        $content = $this->decodeResponseToJson($request, $response);
+        $data = $this->getDataFromRawData($content);
 
+        /** @var Model\System\Me $me */
         $me = $meta->hydrate(reset($data));
 
         if (!$me->CurrentDivision) {
@@ -88,7 +103,7 @@ abstract class ExactEnvironment /*permits Exact*/
     }
 
     final protected function createRequest(
-        UriInterface      $uri,
+        UriInterface &$uri,
         string|HttpMethod $method = HttpMethod::GET,
         ?StreamInterface  $body = null,
         array             $headers = [],
@@ -137,6 +152,7 @@ abstract class ExactEnvironment /*permits Exact*/
             'User-Agent' => ExactConnectionManager::USER_AGENT,
             'X-ExactOnline-Client' => $this->configuration->clientId(),
             'Prefer' => 'return=representation',
+            'Accept-Language' => $this->language
         ], $headers);
 
 
@@ -205,7 +221,10 @@ abstract class ExactEnvironment /*permits Exact*/
             return;
         }
 
-        $uri = $this->manager->uriFactory->createUri($this->manager->generateTokenAccessUrl());
+        $uri = $this->manager->uriFactory->createUri(
+            $this->manager->generateTokenAccessUrl()
+        );
+
         $request =
             $this->configuration->addRequestTokenData(
             // Note to self: new FormStream is not optional.
@@ -216,7 +235,8 @@ abstract class ExactEnvironment /*permits Exact*/
 
         $now = time();
         $response = $this->sendRequest($request);
-        $content = $this->decodeJsonRequestResponse($request, $response);
+        $data = $this->decodeResponseToJson($request, $response);
+        $content = $this->getDataFromRawData($data);
 
         $requirements = ['access_token', 'expires_in', 'refresh_token'];
 
@@ -337,7 +357,97 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         return $e->isSaveSuccess();
+    }
 
+    final public function criteriaToUri(
+        DataSourceMeta $meta,
+        ?Criteria      $criteria = null,
+    ): Uri
+    {
+        if (!$meta->supports(HttpMethod::GET)) {
+            throw new MethodNotSupported($this, $meta->name, HttpMethod::GET);
+        }
+
+        $uri = $this->getUri($meta);
+
+        $criteria ??= Criteria::create();
+        $visitor = new ExactVisitor($meta);
+        $expression = $criteria->getWhereExpression();
+        $filter = ($expression) ? $visitor->dispatch($expression) : null;
+
+        if (!empty($filter)) {
+            $query = ['$filter=' . $filter];
+        }
+
+        if (!empty($filter) && !empty($criteria->expansion)) {
+            throw new \LogicException(
+                "Cannot use a \$filter expression while also trying to expand a selection."
+            );
+        }
+
+        $selection = $criteria->selection;
+        if (!empty($selection)) {
+            $selection = implode(',', $selection);
+            $query[] = '$select=' . $selection;
+        }
+
+        $expand = $criteria->expansion;
+        if (!empty($expand)) {
+            $expand = implode(',', $expand);
+            $query[] = '$expand=' . $expand;
+        }
+
+        $orderings = $criteria->orderings();
+        if (!empty($orderings)) {
+            if (count($orderings) > 1) {
+                throw new \RuntimeException(
+                    "Multiple orderings are only supported on oData4+",
+                );
+            }
+            $query[] = sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
+        }
+
+        if ($criteria->inlineCount) {
+            $query[] = '$inlineCount=allpages';
+        }
+
+        if ($criteria->skipToken && $criteria->allowSkipVariable && $criteria->getFirstResult()) {
+            throw new \LogicException(
+            // How would this even work?
+            // Do you skip the amount first, then skip to token possibly missing?
+            // Or do you skip to token, then offset the amount, making it volatile?
+                "Setting both 'skipToken' and 'firstResult' is not supported."
+            );
+        }
+
+        if ($max = $criteria->getMaxResults()) {
+            if (empty($criteria->selection)) {
+                throw new \LogicException("Cannot set a max without a selection present.");
+            }
+
+            if ($max < 1) {
+                throw new \LogicException(
+                    "Cannot have a negative number of selections."
+                );
+            }
+
+            $query[] = '$top=' . $max;
+        }
+
+        if ($criteria->skipToken) {
+            $query[] = '$skipToken=' . $criteria->skipToken;
+        }
+
+        if ($criteria->allowSkipVariable && $criteria->getFirstResult()) {
+            $query[] = '$skip=' . $criteria->getFirstResult();
+        }
+
+
+        if (!empty($query)) {
+            $uri = $uri->withQuery(implode('&', $query));
+        }
+
+        return $uri;
     }
 
     final protected function sendRequest(RequestInterface $request): ResponseInterface
@@ -348,17 +458,7 @@ abstract class ExactEnvironment /*permits Exact*/
             str_contains($path, '{division}') ||
             str_contains($path, '%7Bdivision%7D')
         ) {
-            $request = $request->withUri(
-                $request->getUri()->withPath(
-                    str_replace([
-                        '{division}', // Capture normal division, in case it never got encoded
-                        '%7Bdivision%7D' // Url encoding will have likely already taken place, capture that to
-                    ],
-                        $this->getDivision(),
-                        $path
-                    )
-                )
-            );
+            throw new \RuntimeException("URI Path still contains division parameters, please resolve before calling sendRequest.");
         }
 
         if ($this->offline) {
@@ -391,22 +491,6 @@ abstract class ExactEnvironment /*permits Exact*/
 
         $this->updateRateLimits($response);
 
-        if ($response->getStatusCode() < 200 && $response->getStatusCode() > 300) {
-            throw new ExactCommunicationError(
-                $this,
-                new ExactResponseNOKError($request, $response)
-            );
-        }
-
-        if ($response->getStatusCode() === 204) {
-            if ($this->treatEmptyAsError) {
-                throw new ExactCommunicationError(
-                    $this,
-                    new ExactEmptyResponseError($request, $response)
-                );
-            }
-        }
-
         return $response;
     }
 
@@ -420,35 +504,33 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this->rateLimits ??= ExactRateLimits::createFromLimits($this);
     }
 
-    final protected function decodeJsonRequestResponse(
+    final protected function decodeResponseToJson(
         RequestInterface  $request,
         ResponseInterface $response,
-        bool $raw = false
+        bool $raw = false,
     ): array
     {
-        $body = $response->getBody();
+        $body = $response->getBody()->getContents();
 
-        if (!$body->isReadable() || !$body->isSeekable()) {
-            throw new ExactCommunicationError(
-                $this,
-                new ExactResponseError(
-                    'Unable to read/rewind body from response',
-                    $request,
-                    $response
-                )
-            );
+        if (empty($body)) {
+            return [];
         }
 
-        $body->rewind();
-
-        $body = $body->getContents();
         try {
-            return $this->decodeJson($body, $raw);
+            $result = json_decode($body, !$raw);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \RuntimeException(
+                    'Unable to decode response body',
+                );
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             throw new ExactCommunicationError(
                 $this,
                 new ExactResponseError(
-                    $e->getMessage() . ' (' . (string)$request->getUri() . ')',
+                    $e->getMessage() . ' (' . $request->getUri() . ')',
                     $request,
                     $response
                 )
@@ -457,22 +539,13 @@ abstract class ExactEnvironment /*permits Exact*/
 
     }
 
-    final protected function decodeJson(
-        string $content,
-        bool $raw = false
+    final protected function getDataFromRawData(
+        array $content
     ) : array {
-        $content = json_decode($content, true);
-
-
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException(
-                'Unable to decode response body',
-            );
-        }
-
         if (isset($content['error'])) {
             if (isset($content['error_description'])) {
-                throw new \RuntimeException(
+                throw new ExactCommunicationError(
+                    $this,
                     sprintf('[%s] %s', $content['error'], $content['error_description']),
                 );
 
@@ -481,13 +554,10 @@ abstract class ExactEnvironment /*permits Exact*/
             if (is_array($message)) {
                 $message = $message['value'] ?? json_encode($message);
             }
-            throw new \RuntimeException(
+            throw new ExactCommunicationError(
+                $this,
                 $message,
             );
-        }
-
-        if ($raw) {
-            return $content;
         }
 
         if (isset($content['d'])) {
@@ -499,5 +569,54 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         return $content;
+    }
+
+    /**
+     * Removes accessToken, refreshToken and authorizationCode.
+     *
+     * This does _NOT_ delete client data (ClientID, ClientSecret and/or WebHookSecret)!
+     *
+     * @return bool
+     */
+    final public function logout(): bool
+    {
+        $this->configuration->organizationAccessToken = null;
+        $this->configuration->organizationRefreshToken = null;
+        $this->configuration->organizationAuthorizationCode = null;
+        $this->configuration->organizationAccessTokenExpires = null;
+        return $this->saveConfiguration();
+    }
+
+    final public function fileUploadAllowed(string|\SplFileInfo $file, ?string &$denyReason = null): bool
+    {
+        if (is_string($file)) {
+            if (!file_exists($file)) {
+                $denyReason = "File {$file} does not exist.";
+                return false;
+            }
+            if (!is_readable($file)) {
+                $denyReason = "File {$file} is not readable.";
+                return false;
+            }
+
+            $file = new \SplFileInfo($file);
+        }
+
+        $this->manager->dispatcher->dispatch(
+            $event = new FileUpload($this, $file)
+        );
+
+
+        if ($event->isPropagationStopped()) {
+            $denyReason = $event->denyReason;
+            return false;
+        }
+
+        return true;
+    }
+
+    final public function uuid(?string $seed = null): string
+    {
+        return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
     }
 }

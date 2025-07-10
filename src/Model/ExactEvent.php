@@ -7,7 +7,7 @@ use Psr\EventDispatcher\StoppableEventInterface;
 class ExactEvent implements StoppableEventInterface
 {
     /** @noinspection PhpGetterAndSetterCanBeReplacedWithPropertyHooksInspection No, it can't, it's part of the interface. */
-    private bool $propagationStopped = false;
+    protected bool $propagationStopped = false;
 
     public function stopPropagation() : self
     {

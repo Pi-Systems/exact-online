@@ -149,15 +149,33 @@ final class DataSourceMeta implements \Serializable
     public function deflate(
         DataSource $object,
         HttpMethod $httpMethod = HttpMethod::GET,
+        /**
+         * This is an additional restriction on-top of $httpMethod.
+         * If set, each field must within the HttpMethod above, or this will throw a \InvalidArgumentException.
+         */
+        ?array $limitFieldsTo = null,
         ?bool $skipNull = null,
     ): array
     {
         $skipNull ??= self::$deflationSkipsNullByDefault;
 
         $data = [];
+
+        if ($limitFieldsTo) {
+            $lc = count($limitFieldsTo);
+            $intersect = array_intersect($limitFieldsTo, array_keys($this->properties));
+            if (count($intersect) !== $lc) {
+                throw new \InvalidArgumentException("The fields you specified are not valid for this object. (" . implode(', ', $intersect) . ' given)');
+            }
+        }
+
         foreach ($this->properties as $name => $meta) {
             // Ensure we do not send stuff the rest api does not support.
             if ($httpMethod !== HttpMethod::GET && !in_array($httpMethod, $meta['methods'], true)) {
+                continue;
+            }
+
+            if ($limitFieldsTo && !in_array($name, $limitFieldsTo, true)) {
                 continue;
             }
 

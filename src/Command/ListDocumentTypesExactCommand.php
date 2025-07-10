@@ -1,0 +1,55 @@
+<?php
+
+namespace PISystems\ExactOnline\Command;
+
+use PISystems\ExactOnline\Builder\Exact;
+use PISystems\ExactOnline\Model\Exact\Documents\DocumentTypes;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Helper\Table;
+use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Output\OutputInterface;
+
+class ListDocumentTypesExactCommand extends Command
+{
+    public function __construct(private readonly Exact $exact)
+    {
+        parent::__construct('exact:document-types');
+    }
+
+    protected function execute(InputInterface $input, OutputInterface $output): int
+    {
+        $table = new Table($output);
+        $table->setHeaders([
+            'ID',
+            'Description',
+            'Category',
+            'Viewable',
+            'Creatable',
+            'Updatable',
+            'Deletable',
+        ]);
+
+        $query = $this->exact->matching(DocumentTypes::class);
+        $c = 0;
+        /** @var DocumentTypes $type */
+        foreach ($query as $type) {
+            $c++;
+            $table->addRow([
+                $type->ID,
+                $type->Description,
+                $type->TypeCategory,
+                $type->DocumentIsViewable ? '✔️' : '❌',
+                $type->DocumentIsCreatable ? '✔️' : '❌',
+                $type->DocumentIsUpdatable ? '✔️' : '❌',
+                $type->DocumentIsDeletable ? '✔️' : '❌',
+            ]);
+        }
+
+        $table->render();
+        $output->writeln("Found {$c} document types.");
+
+        return self::SUCCESS;
+    }
+
+
+}

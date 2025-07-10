@@ -3,7 +3,6 @@
 namespace PISystems\ExactOnline\Command;
 
 use PISystems\ExactOnline\Builder\Exact;
-use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Model\Exact\Crm\Accounts;
 use PISystems\ExactOnline\Model\Exact\Financial\GLAccounts;
 use PISystems\ExactOnline\Model\Exact\Salesentry\SalesEntries;
@@ -24,7 +23,7 @@ class GenerateBookingExampleExactCommand extends Command
         private readonly Exact $exact,
     )
     {
-        parent::__construct('exact:examples:generate-booking');
+        parent::__construct('exact:generate-booking');
     }
 
     protected function configure()

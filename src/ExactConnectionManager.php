@@ -5,11 +5,11 @@ namespace PISystems\ExactOnline;
 use PISystems\ExactOnline\Builder\Exact;
 use PISystems\ExactOnline\Events\BeforeCreate;
 use PISystems\ExactOnline\Events\Created;
-use PISystems\ExactOnline\Model\SeededUuidProvider;
-use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
 use PISystems\ExactOnline\Model\ExactRuntimeConfiguration;
 use PISystems\ExactOnline\Model\ExactWrappedEventDispatcher;
+use PISystems\ExactOnline\Model\SeededUuidProvider;
+use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\Validation;
 use Psr\Cache\CacheItemPoolInterface;
@@ -147,11 +147,13 @@ class ExactConnectionManager
 
     /**
      * @param ExactRuntimeConfiguration $configuration
+     * @param string $language
      * @return Exact
      */
     public function create(
         #[\SensitiveParameter]
         ExactRuntimeConfiguration $configuration,
+        string $language = 'nl-NL,en;q=0.9'
     ): Exact
     {
         // There should be no more mutations in the dispatcher.

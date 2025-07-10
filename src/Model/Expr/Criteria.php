@@ -70,7 +70,7 @@ class Criteria extends BaseCriteria
          * Note: If nothing is added here, the variable $top=1 is automatically added.
          * (This is not our restriction)
          */
-        ?array         $selection = [],
+        array $selection = ['*'],
         ?array         $expansion = [],
         ?array         $orderings = null,
         /**
@@ -92,27 +92,12 @@ class Criteria extends BaseCriteria
         public bool    $inlineCount = false
     )
     {
-        if ($source instanceof DataSourceMeta) {
-            $this->meta = $source;
-            return;
-        }
-
-        $meta = null;
-
-        if ($source &&
-            (
-                $source instanceof DataSource ||
-                is_a($source, DataSource::class, true)
-            )) {
-            $meta = ExactMetaDataLoader::meta($meta);
-        }
-
-        $this->meta = $meta;
+        $this->meta = $source ? ExactMetaDataLoader::meta($source) : null;
         $this->selection = $selection;
         $this->expansion = $expansion;
 
-        // First result being null is deprecated in doctrine.
-        // However; it is explicitly NOT deprecated here.
+        // The first result being null is deprecated in doctrine.
+        // However, it is explicitly NOT deprecated here.
         // Make sure to follow $this->allowSkipVariable before reading it out.
         parent::__construct($expression, $orderings, 0, null);
     }

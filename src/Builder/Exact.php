@@ -2,9 +2,7 @@
 
 namespace PISystems\ExactOnline\Builder;
 
-use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\MethodNotSupported;
 use PISystems\ExactOnline\Model\DataSource;
@@ -12,7 +10,6 @@ use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\ExactEnvironment;
 use PISystems\ExactOnline\Model\ExactMetaDataLoader;
 use PISystems\ExactOnline\Model\Expr\Criteria;
-use PISystems\ExactOnline\Model\Expr\ExactVisitor;
 use PISystems\ExactOnline\Polyfill\JsonDataStream;
 use Psr\Cache\InvalidArgumentException;
 
@@ -44,7 +41,6 @@ class Exact extends ExactEnvironment
      * @param bool $cached
      * @return T|null
      * @template T
-     * @throws InvalidArgumentException
      */
     public function find(
         DataSource|DataSourceMeta|string $source,
@@ -57,7 +53,7 @@ class Exact extends ExactEnvironment
         $generator = $this->matching(
             $meta,
             ($criteria ?? Criteria::create())->andWhere(
-                Criteria::expr()->eq($source->keyColumn, $id)
+                Criteria::expr()->eq($meta->keyColumn, $id)
             ),
             $cached
         );
@@ -78,113 +74,13 @@ class Exact extends ExactEnvironment
         string                           $id,
         ?Criteria                        $criteria = null,
         bool                             $cached = true
-    ) : bool
+    ): bool
     {
+        $source = ExactMetaDataLoader::meta($source);
+
         $criteria ??= Criteria::create();
         $criteria->select([$source->keyColumn]);
         return null !== $this->find($source, $id, $criteria, $cached);
-    }
-
-    public function criteriaToUri(
-        DataSourceMeta $meta,
-        ?Criteria      $criteria = null,
-    ): Uri
-    {
-        if (!$meta->supports(HttpMethod::GET)) {
-            throw new MethodNotSupported($this, $meta->name, HttpMethod::GET);
-        }
-
-        $uri = $this->manager->uriFactory->createUri(sprintf(
-            "%s://%s%s",
-            ExactConnectionManager::CONN_API_PROTOCOL,
-            ExactConnectionManager::CONN_API_DOMAIN,
-            str_replace('{division}', $this->getDivision(), $meta->endpoint)
-        ));
-        print "{$uri}?";
-
-        if ($criteria) {
-            $visitor = new ExactVisitor($meta);
-            $filter = $visitor->dispatch($criteria->getWhereExpression());
-
-            if (!empty($filter)) {
-                $query = ['$filter=' . $filter];
-            }
-
-            if (!empty($filter) && !empty($criteria->expansion)) {
-                throw new \LogicException(
-                    "Cannot use a \$filter expression while also trying to expand a selection."
-                );
-            }
-
-            $selection = $criteria->selection;
-            if (!empty($selection)) {
-                $selection = implode(',', $selection);
-                $query[] = '$select=' . $selection;
-            } else {
-                $query[] = '$top=1';
-            }
-
-            $expand = $criteria->expansion;
-            if (!empty($expand)) {
-                $expand = implode(',', $expand);
-                $query[] = '$expand=' . $expand;
-            }
-
-            $orderings = $criteria->orderings();
-            if (!empty($orderings)) {
-                if (count($orderings) > 1) {
-                    throw new \RuntimeException(
-                        "Multiple orderings are only supported on oData4+",
-                    );
-                }
-                $query[] = sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
-            }
-
-            if ($criteria->inlineCount) {
-                $query[] = '$inlineCount=allpages';
-            }
-
-            if ($criteria->skipToken && $criteria->allowSkipVariable && $criteria->getFirstResult()) {
-                throw new \LogicException(
-                // How would this even work?
-                // Do you skip the amount first, then skip to token possibly missing?
-                // Or do you skip to token, then offset the amount, making it volatile?
-                    "Setting both 'skipToken' and 'firstResult' is not supported."
-                );
-            }
-
-            if ($max = $criteria->getMaxResults()) {
-                if (empty($criteria->selection)) {
-                    throw new \LogicException("Cannot set a max without a selection present.");
-                }
-
-                if ($max < 1) {
-                    throw new \LogicException(
-                        "Cannot have a negative number of selections."
-                    );
-                }
-
-                $query[] = '$top=' . $max;
-            }
-
-            if ($criteria->skipToken) {
-                $query[] = '$skipToken=' . $criteria->skipToken;
-            }
-
-            if ($criteria->allowSkipVariable && $criteria->getFirstResult()) {
-                $query[] = '$skip=' . $criteria->getFirstResult();
-            }
-
-
-            if (!empty($query)) {
-                $uri = $uri->withQuery(implode('&', $query));
-            }
-        }
-        if (!$criteria) {
-            $uri = $uri->withQuery('$top=1');
-        }
-
-        return $uri;
     }
 
     /**
@@ -192,11 +88,10 @@ class Exact extends ExactEnvironment
      * @param DataSource|DataSourceMeta|string $source
      * @param string|Criteria|null $criteria If criteria is a string, it will be treated as THE ENTIRE QUERY PARAM (Aka: Raw mode)
      * @param bool $cache Note: Cache is on the data layer, hydration is still performed normally.
-     *                     While less performant, this does allows library updates without destroying existing caches.
+     *                     While less performant, this does allow library updates without destroying existing caches.
      *
      *
      * @return \Generator<T>
-     * @throws InvalidArgumentException
      * @template T
      */
     public function matching(
@@ -205,47 +100,50 @@ class Exact extends ExactEnvironment
         bool                 $cache = true
     ): \Generator
     {
-        $meta = ExactMetaDataLoader::meta($source);
+        $source = ExactMetaDataLoader::meta($source);
 
-        if ($criteria instanceof Criteria && !$criteria->isFrom($meta)) {
+        if ($criteria instanceof Criteria && !$criteria->isFrom($source)) {
             throw new \LogicException(
                 "Not a valid criteria for {$source->name}, either use source-less criteria, or ensure the right meta is attached to the criterium."
             );
         }
 
         if ($criteria instanceof Criteria) {
-            $uri = $this->criteriaToUri($meta, $criteria);
+            $uri = $this->criteriaToUri($source, $criteria);
         } else if (null === $criteria) {
-            $uri = $this->criteriaToUri($meta);
+            $uri = $this->criteriaToUri($source);
         } else {
-            $uri = $this->manager->uriFactory->createUri(sprintf(
-                "%s://%s%s",
-                ExactConnectionManager::CONN_API_PROTOCOL,
-                ExactConnectionManager::CONN_API_DOMAIN,
-                $meta->endpoint
-            ))->withQuery($criteria);
+            $uri = $this->getUri($source)->withQuery($criteria);
         }
 
-
         do {
-            $cKey = 'matching::' . $this->getDivision() . '::' . sha1($source->name . "::" . $uri);
-            $item = $this->manager->cache->getItem($cKey);
-            if ($cache && $item->isHit()) {
-                $data = $item->get();
+            $cKey = 'matching::' . $this->language . '::' . $this->getDivision() . '::' . sha1($source->name . "::" . $uri);
+            try {
+                $cacheItem = $this->manager->cache->getItem($cKey);
+            } catch (InvalidArgumentException $e) {
+                // No idea why this exception is even a thing, throw the base \InvalidArgumentException ffs.
+                // "We want to know where it came from!" ...
+                // Then THROW THE BASE CACHE EXCEPTION FFS! Or call it Cache(Invalid)ArgumentException.
+                throw new \InvalidArgumentException($e->getMessage(), $e->getCode(), $e);
+            }
+            if ($cache && $cacheItem->isHit()) {
+                $content = $cacheItem->get();
+                $data = $this->getDataFromRawData($content);
             } else {
                 $request = $this->createRequest($uri);
                 $response = $this->sendAuthenticatedRequest($request);
 
-                $data = $this->decodeJsonRequestResponse($request, $response);
+                $content = $this->decodeResponseToJson($request, $response);
+                $data = $this->getDataFromRawData($content);
 
-                $item->set($data);
-                $this->manager->cache->save($item);
+                $cacheItem->set($content);
+                $this->manager->cache->save($cacheItem);
             }
 
-            $next = $data['__next'] ?? null;
+            $next = $content['d']['__next'] ?? null;
 
             foreach ($data as $item) {
-                yield $meta->hydrate($item);
+                yield $source->hydrate($item);
             }
 
             if ($next) {
@@ -341,32 +239,35 @@ class Exact extends ExactEnvironment
     /**
      * Warning: Returns a NEW DataSource object upon success
      * @param DataSource $object
-     * @return bool
+     * @return string|null
      */
-    public function create(DataSource $object): bool
+    public function create(DataSource $object): null|string
     {
         $meta = $object::meta();
         if (!$meta->supports(HttpMethod::CREATE)) {
             throw new MethodNotSupported($this, $object::class, HttpMethod::POST);
         }
 
-        $data = $meta->deflate($object, HttpMethod::CREATE, true);
-        $uri = $this->manager->uriFactory->createUri(
-            sprintf(
-                "%s://%s%s",
-                ExactConnectionManager::CONN_API_PROTOCOL,
-                ExactConnectionManager::CONN_API_DOMAIN,
-                $meta->endpoint,
-            )
-        );
+        $data = $meta->deflate($object, HttpMethod::CREATE, skipNull: true);
+        $uri = $this->getUri($meta);
         $request = $this->createRequest($uri, HttpMethod::CREATE, new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
 
+        $content = $this->decodeResponseToJson($request, $response);
+        $data = null;
+        if (!empty($content)) {
+            // Triggers error messages
+            $data = $this->getDataFromRawData($content);
+        }
         if ($response->getStatusCode() !== 201) {
             throw new ExactResponseError('Unable to create object in Exact', $request, $response);
         }
 
-        return true;
+        if ($data === null) {
+            return null;
+        }
+
+        return $data[$meta->keyColumn] ?? null;
     }
 
     /**
@@ -374,9 +275,10 @@ class Exact extends ExactEnvironment
      *          Return value is the same as the one passed.
      *
      * @param DataSource $object
+     * @param array|null $fields Update only these fields (Warning: Not supported on every endpoint!)
      * @return bool
      */
-    public function update(DataSource $object): bool
+    public function update(DataSource $object, ?array $fields = null): bool
     {
         $meta = $object::meta();
         if (!$meta->supports(HttpMethod::UPDATE)) {
@@ -389,18 +291,21 @@ class Exact extends ExactEnvironment
             throw new \LogicException('Unable to delete object, no primary key found.');
         }
 
-        $data = $meta->deflate($object, HttpMethod::UPDATE);
-        $uri = $this->manager->uriFactory->createUri(sprintf(
-            "%s://%s%s(guid'%s')",
-            ExactConnectionManager::CONN_API_PROTOCOL,
-            ExactConnectionManager::CONN_API_DOMAIN,
-            $meta->endpoint,
-            $key
-        ));
+        $data = $meta->deflate($object, HttpMethod::UPDATE, $fields);
+        $uri = $this->getUri($meta);
+        $uri = $uri->withPath(
+            sprintf(
+                "%s(guid'%s')",
+                $uri->getPath(),
+                $key
+            )
+        );
+
         $request = $this->createRequest($uri, HttpMethod::UPDATE, new JsonDataStream($data));
         $response = $this->sendAuthenticatedRequest($request);
+        $code = $response->getStatusCode();
 
-        return $response->getStatusCode() > 200 && $response->getStatusCode() < 300;
+        return $code >= 200 && $code < 300;
     }
 
     public function delete(DataSource $object): bool
@@ -416,25 +321,24 @@ class Exact extends ExactEnvironment
             throw new \LogicException('Unable to delete object, no primary key found.');
         }
 
-        $uri = $this->manager->uriFactory->createUri(sprintf(
-            "%s://%s%s(guid'%s')",
-            ExactConnectionManager::CONN_API_PROTOCOL,
-            ExactConnectionManager::CONN_API_DOMAIN,
-            $meta->endpoint,
-            $key
-        ));
+        $uri = $this->getUri($meta);
+        $uri = $uri->withPath(
+            sprintf(
+                "%s(guid'%s')",
+                $uri->getPath(),
+                $key
+            )
+        );
 
         $request = $this->createRequest($uri, 'DELETE');
+        $response = $this->sendAuthenticatedRequest($request);
+        $code = $response->getStatusCode();
 
         return in_array(
-            $this->sendAuthenticatedRequest($request)->getStatusCode(),
+            $code,
             // Intentionally catching 410, we want it deleted, the fact it already was is just w/e at this point.
             [200, 204, 410]
         );
     }
 
-    public function uuid(?string $seed = null): string
-    {
-        return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
-    }
 }

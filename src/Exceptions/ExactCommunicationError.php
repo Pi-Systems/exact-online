@@ -11,9 +11,14 @@ class ExactCommunicationError extends ExactException
 {
     public function __construct(
         Exact                                                                        $exact,
-        public readonly ClientExceptionInterface|RequestExceptionInterface|NetworkExceptionInterface $exception,
+        public readonly string|ClientExceptionInterface|RequestExceptionInterface|NetworkExceptionInterface $exception,
     )
     {
+        if (is_string($exception)) {
+            parent::__construct($exact, $exception);
+            return;
+        }
+
         parent::__construct(
             $exact,
             $this->exception->getMessage(),

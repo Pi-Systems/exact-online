@@ -11,6 +11,7 @@ use PISystems\ExactOnline\Model\TypedValue;
 class DateTime extends EdmDataStructure implements FilterEncodableDataStructure, EdmEncodableDataStructure
 {
     const string ODATA_DATE_FORMAT = 'Y-m-d\TH:i:s';
+    private ?\DateTimeZone $tz = null;
 
     public static function getEdmType(): string
     {
@@ -83,10 +84,14 @@ class DateTime extends EdmDataStructure implements FilterEncodableDataStructure,
         // Seriously?! And o2 prides itself on being a standard... get real.
         // Just use null  & ATOM/ISO8601 ffs, like every other normal format on the planet.
         if (str_starts_with($value, '/Date(')) {
-            $value = (int)substr($value, 6,-2);
+            $value = ((int)substr($value, 6, -2)) / 1000;
             return \DateTimeImmutable::createFromTimestamp($value);
         }
 
-        return new \DateTimeImmutable($value);
+        try {
+            return new \DateTimeImmutable($value, $this->tz ??= new \DateTimeZone('UTC'));
+        } catch (\DateMalformedStringException) {
+            return new \DateTimeImmutable();
+        }
     }
 }

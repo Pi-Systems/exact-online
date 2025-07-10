@@ -13,10 +13,10 @@ class AuthorizeExampleExactCommand extends Command
 {
     public function __construct(private readonly Exact $exact)
     {
-        parent::__construct('exact:examples:authorize');
+        parent::__construct('exact:authorize');
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this->addArgument(
             'authorization_code',
@@ -24,22 +24,50 @@ class AuthorizeExampleExactCommand extends Command
             "This is acquired through the oAuth loop, it is a string that usually formatted as such:\n".
             "stamp{country}{country_code).{encrypted_token}\n".
             "Example: stampNL0001.Hoc3ETC\n".
+            "One can also throw in the entire url, as long as it contains the code in the query string.\n" .
             "\n".
-            "This entry is volatile, the code (message) it contains is only valid for upto 1-2 minutes at best.\n".
-            "This example cannot really help in managing this properly, one would need to implement a webserver that can accept\n".
-            "the callback from exact to make this automatic.\n".
-            "For now, call this command back with this code as the only argument.\n"
+            "Warning: The code/url is only valid for upto a minute, so don't be to slow."
         );
 
         $this->addOption('refresh', 'r', InputOption::VALUE_NONE, 'Refresh the division, do not rely on the cache.');
+        $this->addOption('logout', null, InputOption::VALUE_NONE, 'Removes all login data and exits.');
     }
 
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
+        if ($input->getOption('logout')) {
+            if ($this->exact->logout()) {
+                $output->writeln("Logged out (Reset all login data, no matter their state).");
+                return self::SUCCESS;
+            } else {
+                $output->writeln("Failed to log out, could not clear the persisted data.");
+                return self::FAILURE;
+            }
+        }
+
+
         $authCode = $input->getArgument('authorization_code');
 
+        if (filter_var($authCode, FILTER_VALIDATE_URL)) {
+            $query = parse_url($authCode, PHP_URL_QUERY);
+            $params = [];
+            parse_str($query, $params);
+            $authCode = $params['code'] ?? null;
+
+            if (!$authCode) {
+                $output->writeln("No code found in the query string.");
+                return self::FAILURE;
+            }
+
+            $authCode = urldecode($authCode);
+        }
+
+
         if ($authCode) {
+            if ($this->exact->isAuthorized()) {
+                throw new \LogicException("Setting an authorization code while already authorized makes no sense, call this command with --logout before calling this again.");
+            }
             $this->exact->setOrganizationAuthorizationCode(
                 urldecode($authCode),
             );

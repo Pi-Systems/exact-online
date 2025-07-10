@@ -13,7 +13,7 @@ class DataHydrationExampleExactCommand extends Command
 {
     public function __construct(private readonly Exact $exact)
     {
-        parent::__construct('exact:examples:data-hydration');
+        parent::__construct('exact:data-hydration');
     }
 
 

@@ -14,7 +14,10 @@ production library.
 If in the future, a PSR version of Selection Criteria were to be made available, this project will switch to that.  
 For now, as everything we need it to do is pretty much fully cover.
 
-> Note: Due to PISystems own requirements, the minimum version is set to `>=2.2.2`.
+> Note: Due to PISystems own requirements, the minimum version of `Doctrine\Collections` is set to `>=2.2.2`.  
+> Note: Due to PISystems own requirements, the minimum version of `PSR\Log` is set to `>=1.1.0`
+>
+> Both will be resolved in the (near) future, but should pose (hopefully) pose no issues.
 
 # Setup
 

@@ -187,7 +187,7 @@ Then checking if we need to start from the oAuth URL, or we can go ahead and jus
     $exact = $manager->create($config);
 
     // This package cannot help you with this, the user must implement this part of the loop.
-    // https://my.site/exact/webhook?source=<THIS IS THE CODE>&this_is_not=part_of_the_code
+    // https://my.site/exact/webhook?code=<THIS IS THE CODE>&this_is_not=part_of_the_code
     $authCode = null; 
 
     if (!($authed = $exact->isAuthorized()) && !$authCode) {

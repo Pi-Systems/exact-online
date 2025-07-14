@@ -14,7 +14,7 @@ final class OnDemandAppConfigurationLoader implements ExactAppConfigurationInter
 {
     private ?DirectExactAppConfiguration $_config = null;
 
-    /**
+    /**.
      * @var \Closure<DirectExactAppConfiguration> $handler
      */
     public function __construct(

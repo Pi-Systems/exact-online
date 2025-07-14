@@ -15,7 +15,8 @@ class Endpoint extends ExactAttribute
                 $this->uri = $value;
             }
             get => $this->uri;
-        }
+        },
+        public string $globalName
     )
     {
 

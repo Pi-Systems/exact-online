@@ -22,14 +22,20 @@ class ListDocumentTypeCategoriesExactCommand extends Command
         $table->setHeaders(['ID', 'Description', 'Created', 'Modified']);
 
         /** @var DocumentTypeCategories $documentTypeCategory */
-        foreach ($this->exact->matching(DocumentTypeCategories::class) as $documentTypeCategory) {
-
+        $meta = DocumentTypeCategories::meta();
+        $c = 0;
+        foreach ($this->exact->matching($meta) as $documentTypeCategory) {
+            $c++;
             $table->addRow([
                 $documentTypeCategory->ID,
                 $documentTypeCategory->Description,
                 $documentTypeCategory->Created?->format(\DATE_ATOM),
                 $documentTypeCategory->Modified?->format(\DATE_ATOM),
             ]);
+
+            if ($c > 0 && $c % $meta->pageSize === 0) {
+                $table->render();
+            }
         }
 
         $table->render();

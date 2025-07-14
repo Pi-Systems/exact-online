@@ -3,12 +3,17 @@
 namespace PISystems\ExactOnline\Util;
 
 use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
+use Random\RandomException;
 
 class SeededUuidProvider implements SeededUuidProviderInterface
 {
     public function uuid(int $division, ?string $existing = null): string
     {
-        $existing ??= random_bytes(16);
+        try {
+            $existing ??= random_bytes(16);
+        } catch (RandomException $e) {
+            throw new \RuntimeException("Could not generate UUID", $e->getCode(), $e);
+        }
         $ints = array_map('ord', unpack('L*', pack('h*', preg_replace('/[^\da-f]/', '', $existing))));
 
         $int = $division;

@@ -120,6 +120,7 @@ EOF, true)['d']['results'][0];
 
         /**
          * This means trouble if a property is not part of that method.
+         * @var Me $hydrateFromDelete
          */
         $hydrateFromDelete = $meta->hydrate($deflateOnlyDelete);
         $division = $hydrateFromDelete->CurrentDivision ?? 'CurrentDivision no longer present, truncated by HttpMethod::DELETE';

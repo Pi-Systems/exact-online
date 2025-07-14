@@ -2,6 +2,7 @@
 
 namespace PISystems\ExactOnline\Model;
 
+use Doctrine\Common\Collections\Criteria as DoctrineCriteria;
 use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Entity\System\Me;
 use PISystems\ExactOnline\Enum\CredentialsType;
@@ -34,9 +35,6 @@ abstract class ExactEnvironment /*permits Exact*/
     public bool $treatEmptyAsError = true;
 
     public bool $offline = false;
-
-    private ?RateLimits $rateLimits = null;
-
     public ?int $division = null {
         get => $this->configuration->division;
         set {
@@ -51,6 +49,7 @@ abstract class ExactEnvironment /*permits Exact*/
             $this->configuration->division = $value;
         }
     }
+    private ?RateLimits $rateLimits = null;
 
     final public function __construct(
         #[\SensitiveParameter]
@@ -59,122 +58,6 @@ abstract class ExactEnvironment /*permits Exact*/
         public string                         $language = 'nl-NL,en;q=0.9'
     )
     {
-    }
-
-    final public function getUri(DataSource|DataSourceMeta|string $source): Uri
-    {
-        $source = MetaDataLoader::meta($source);
-
-        $endpoint = $source->endpoint;
-        if (str_contains($endpoint, '{division}')) {
-            $endpoint = str_replace('{division}', $this->division, $endpoint);
-        }
-
-        return $this->manager->apiBaseUri()->withPath($endpoint);
-    }
-
-    final protected function loadAdministrationData(bool $cache = true): int
-    {
-        if ($cache && $this->division) {
-            return $this->division;
-        }
-
-        if ($this->offline) {
-            return 0;
-        }
-
-        $meta = Me::meta();
-        $uri = $this
-            ->getUri($meta)
-            ->withQuery('$select=CurrentDivision');
-
-        $request = $this->createRequest($uri);
-        $response = $this->sendAuthenticatedRequest($request);
-        $content = $this->decodeResponseToJson($request, $response);
-        $data = $this->getDataFromRawData($content);
-
-        /** @var Me $me */
-        $me = $meta->hydrate(reset($data));
-
-        if (!$me->CurrentDivision) {
-            throw new ExactResponseError('Unable to determine current division.', $request, $response);
-        }
-
-        return $this->division = (int)$me->CurrentDivision;
-    }
-
-    final protected function createRequest(
-        UriInterface &$uri,
-        string|HttpMethod $method = HttpMethod::GET,
-        ?StreamInterface  $body = null,
-        array             $headers = [],
-    ): RequestInterface
-    {
-
-        if (!$method instanceof HttpMethod) {
-            $method = HttpMethod::tryFrom($method);
-
-            if (!$method) {
-                throw new \InvalidArgumentException('Invalid HTTP method supplied.');
-            }
-        }
-
-        // Ensure we update the division/administration path.
-        if (str_contains($uri->getPath(), '{division}')) {
-            $uri = $uri->withPath(str_replace('{division}', $this->division, $uri->getPath()));
-        }
-
-
-        if ($body && $method === HttpMethod::GET) {
-            // Technically they can, but this is generally not accepted by any sane server.
-            throw new \InvalidArgumentException('GET requests cannot have a body.');
-        }
-
-
-        if (!empty($headers) && array_is_list($headers)) {
-            throw new \InvalidArgumentException('Headers must be an associative array');
-        }
-
-        $request = $this->manager->requestFactory->createRequest(
-            $method->value,
-            $uri
-        );
-
-        $body ??= $request->getBody();
-        if ($body) {
-            if ($body instanceof RequestAwareStreamInterface) {
-                $request = $body->configureRequest($request);
-            }
-            $request = $request->withBody($body);
-        }
-
-        $headers = array_merge([
-            'Accept' => 'application/json',
-            'User-Agent' => ExactConnectionManager::USER_AGENT,
-            'X-ExactOnline-Client' => $this->configuration->clientId(),
-            'Prefer' => 'return=representation',
-            'Accept-Language' => $this->language
-        ], $headers);
-
-
-        foreach ($headers as $key => $value) {
-            $request = $request->withHeader($key, $value);
-        }
-
-        return $request;
-    }
-
-    final protected function sendAuthenticatedRequest(
-        RequestInterface $request,
-    ): ResponseInterface
-    {
-        $this->configureAccessToken();
-
-        return $this->sendRequest(
-            $this->configuration->addAuthorizationData(
-                $request
-            )
-        );
     }
 
     final public function isAuthorized(): bool {
@@ -214,90 +97,14 @@ abstract class ExactEnvironment /*permits Exact*/
         );
     }
 
-
-    final public function configureAccessToken(): void
-    {
-        if ($this->configuration->hasValidAccessToken()) {
-            // Nothing to configure, available token is already valid.
-            return;
-        }
-
-        $uri = $this->manager->uriFactory->createUri(
-            $this->manager->generateTokenAccessUrl()
-        );
-
-        $request =
-            $this->configuration->addRequestTokenData(
-            // Note to self: new FormStream is not optional.
-            // CreateRequest checks for instanceof RequestAwareStreamInterface
-                $this->createRequest($uri, HttpMethod::POST, new FormStream())
-            );
-
-
-        $now = time();
-        $response = $this->sendRequest($request);
-        $data = $this->decodeResponseToJson($request, $response);
-        $content = $this->getDataFromRawData($data);
-
-        $requirements = ['access_token', 'expires_in', 'refresh_token'];
-
-        if (isset($content['error'])) {
-            if (isset($content['error_description'])) {
-                throw new ExactCommunicationError(
-                    $this,
-                    new ExactResponseError(
-                        sprintf('[%s] %s', $content['error'], $content['error_description']),
-                        $request,
-                        $response
-                    )
-                );
-
-            }
-            throw new ExactCommunicationError(
-                $this,
-                new ExactResponseError(
-                    $content['error'],
-                    $request,
-                    $response
-                )
-            );
-        }
-
-        foreach ($requirements as $requirement) {
-            if (!isset($content[$requirement])) {
-                throw new ExactCommunicationError(
-                    $this,
-                    new ExactResponseError(
-                        'Unable to find ' . $requirement . ' in response',
-                        $request,
-                        $response
-                    )
-                );
-            }
-        }
-
-        if (!ctype_digit($content['expires_in'])) {
-            throw new ExactCommunicationError(
-                $this,
-                new ExactResponseError(
-                    'Unable to parse expires_in from response',
-                    $request,
-                    $response
-                )
-            );
-        }
-
-        $token = $content['access_token'];
-        $expires = \DateTimeImmutable::createFromTimestamp($now + (int)$content['expires_in']);
-        $refresh = $content['refresh_token'];
-
-        $this->setOrganizationAccessToken($token, $expires);
-        $this->setOrganizationRefreshToken($refresh);
-
-        $this->saveConfiguration();
-
-    }
-
+    /**
+     * Set this with the code retrieved during the oAuth loop.
+     * This *MUST* already be urldecoded.
+     * It *MUST NOT* contain anything other than the code.
+     *
+     * @param string $code
+     * @return $this
+     */
     final public function setOrganizationAuthorizationCode(
         string $code
     ): static
@@ -306,65 +113,56 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this;
     }
 
-    final public function setOrganizationAccessToken(string $accessToken, \DateTimeInterface $expires): static
+    final public function getRateLimits(): RateLimits
     {
-        $e = new RefreshCredentials($this, CredentialsType::AccessToken);
-        $this->manager->dispatcher->dispatch($e);
-
-        if ($e->isPropagationStopped()) {
-            return $this;
-        }
-
-        $this->configuration->organizationAccessToken = $accessToken;
-
-        // Once an access token has been loaded, it cannot be used again (Expires after 1-2 minutes anyway)
-        // Pointless to store at this point
-        $this->configuration->organizationAuthorizationCode = null;
-        $this->configuration->organizationAccessTokenExpires = $expires;
-
-        return $this;
+        return $this->rateLimits ??= RateLimits::createFromLimits($this);
     }
 
-    final public function setOrganizationRefreshToken(string $organizationRefreshToken): static
+    /**
+     * Determines with internal logic if the file is allowed to be uploaded.
+     *
+     * Note: This method's execution can be influenced by listening to the `FileUpload` event.
+     */
+    final public function fileUploadAllowed(string|\SplFileInfo $file, ?string &$denyReason = null): bool
     {
-        if (!$this->configuration->hasAccessToken()) {
-            // This is a complete lie, we could, but we're not enabling this stupid behavior.
-            throw new \LogicException('Cannot set refresh token without an access token present.');
+        if (is_string($file)) {
+            if (!file_exists($file)) {
+                $denyReason = "File {$file} does not exist.";
+                return false;
+            }
+            if (!is_readable($file)) {
+                $denyReason = "File {$file} is not readable.";
+                return false;
+            }
+
+            $file = new \SplFileInfo($file);
         }
 
-        $e = new RefreshCredentials($this, CredentialsType::RefreshToken);
-        $this->manager->dispatcher->dispatch($e);
-
-        if ($e->isPropagationStopped()) {
-            return $this;
-        }
-
-        $this->configuration->organizationRefreshToken = $organizationRefreshToken;
-
-        return $this;
-    }
-
-    final protected function saveConfiguration(): bool
-    {
-        $e = new CredentialsChange(
-            $this,
-            $this->configuration->toOrganizationData()
+        $this->manager->dispatcher->dispatch(
+            $event = new FileUpload($this, $file)
         );
 
-        $this->manager->dispatcher->dispatch($e);
 
-        if ($e->isPropagationStopped()) {
+        if ($event->isPropagationStopped()) {
+            $denyReason = $event->denyReason;
             return false;
         }
 
-        return $e->isSaveSuccess();
+        return true;
     }
 
+    /**
+     * Turns a Criteria into a usable URL for all methods.
+     */
     final public function criteriaToUri(
         DataSourceMeta $meta,
-        ?Criteria      $criteria = null,
+        null|Criteria|DoctrineCriteria $criteria = null,
     ): Uri
     {
+        if (!$criteria instanceof Criteria) {
+            $criteria = Criteria::fromDoctrine($criteria);
+        }
+
         if (!$meta->supports(HttpMethod::GET)) {
             throw new MethodNotSupported($this, $meta->name, HttpMethod::GET);
         }
@@ -451,6 +249,231 @@ abstract class ExactEnvironment /*permits Exact*/
         return $uri;
     }
 
+    /**
+     * Removes accessToken, refreshToken and authorizationCode.
+     *
+     * This does _NOT_ delete client data (ClientID, ClientSecret and/or WebHookSecret)!
+     *
+     * @return bool
+     */
+    final public function logout(): bool
+    {
+        $this->configuration->organizationAccessToken = null;
+        $this->configuration->organizationRefreshToken = null;
+        $this->configuration->organizationAuthorizationCode = null;
+        $this->configuration->organizationAccessTokenExpires = null;
+        return $this->saveConfiguration();
+    }
+
+    final public function uuid(?string $seed = null): string
+    {
+        return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
+    }
+
+    /**
+     * Matching() is not part of the env class, so we can't do `->matching(Criteria...)`
+     */
+    final protected function loadAdministrationData(bool $cache = true): int
+    {
+        if ($cache && $this->division) {
+            return $this->division;
+        }
+
+        if ($this->offline) {
+            return 0;
+        }
+
+        $meta = Me::meta();
+        $uri = $this
+            ->getUri($meta)
+            ->withQuery('$select=CurrentDivision');
+
+        $request = $this->createRequest($uri);
+        $response = $this->sendAuthenticatedRequest($request);
+        $content = $this->decodeResponseToJson($request, $response);
+        $data = $this->getDataFromRawData($content);
+
+        /** @var Me $me */
+        $me = $meta->hydrate(reset($data));
+
+        if (!$me->CurrentDivision) {
+            throw new ExactResponseError('Unable to determine current division.', $request, $response);
+        }
+
+        return $this->division = (int)$me->CurrentDivision;
+    }
+
+    /**
+     * Sends a request, while ensuring the `AccessToken` is available.
+     */
+    final protected function sendAuthenticatedRequest(
+        RequestInterface $request,
+    ): ResponseInterface
+    {
+        $this->configureAccessToken();
+
+        return $this->sendRequest(
+            $this->configuration->addAuthorizationData(
+                $request
+            )
+        );
+    }
+
+    /**
+     * Deals with ensuring the `AccessToken` is available.
+     * If a token is present and is valid, use it.
+     * If the token is present but no longer valid, attempt refreshing with `RefreshToken`.
+     * If neither the `AccessToken` nor the `RefreshToken` are present,
+     * attempt to create the token with the `AuthorizationData`.
+     *
+     * If NONE of the options are present, throw `ExactCommunication` and give up.
+     *
+     * For transparency, This method also calls `saveConfiguration`.
+     */
+    final public function configureAccessToken(): void
+    {
+        if ($this->configuration->hasValidAccessToken()) {
+            // Nothing to configure, available token is already valid.
+            return;
+        }
+
+        $uri = $this->manager->uriFactory->createUri(
+            $this->manager->generateTokenAccessUrl()
+        );
+
+        $request =
+            $this->configuration->addRequestTokenData(
+            // Note to self: new FormStream is not optional.
+            // CreateRequest checks for instanceof RequestAwareStreamInterface
+                $this->createRequest($uri, HttpMethod::POST, new FormStream())
+            );
+
+
+        $now = time();
+        $response = $this->sendRequest($request);
+        $data = $this->decodeResponseToJson($request, $response);
+        $content = $this->getDataFromRawData($data);
+
+        $requirements = ['access_token', 'expires_in', 'refresh_token'];
+
+        if (isset($content['error'])) {
+            if (isset($content['error_description'])) {
+                throw new ExactCommunicationError(
+                    $this,
+                    new ExactResponseError(
+                        sprintf('[%s] %s', $content['error'], $content['error_description']),
+                        $request,
+                        $response
+                    )
+                );
+
+            }
+            throw new ExactCommunicationError(
+                $this,
+                new ExactResponseError(
+                    $content['error'],
+                    $request,
+                    $response
+                )
+            );
+        }
+
+        foreach ($requirements as $requirement) {
+            if (!isset($content[$requirement])) {
+                throw new ExactCommunicationError(
+                    $this,
+                    new ExactResponseError(
+                        'Unable to find ' . $requirement . ' in response',
+                        $request,
+                        $response
+                    )
+                );
+            }
+        }
+
+        if (!ctype_digit($content['expires_in'])) {
+            throw new ExactCommunicationError(
+                $this,
+                new ExactResponseError(
+                    'Unable to parse expires_in from response',
+                    $request,
+                    $response
+                )
+            );
+        }
+
+        $token = $content['access_token'];
+        $expires = \DateTimeImmutable::createFromTimestamp($now + (int)$content['expires_in']);
+        $refresh = $content['refresh_token'];
+
+        $this->setOrganizationAccessToken($token, $expires);
+        $this->setOrganizationRefreshToken($refresh);
+
+        $this->saveConfiguration();
+
+    }
+
+    final protected function createRequest(
+        UriInterface      &$uri,
+        string|HttpMethod $method = HttpMethod::GET,
+        ?StreamInterface  $body = null,
+        array             $headers = [],
+    ): RequestInterface
+    {
+
+        if (!$method instanceof HttpMethod) {
+            $method = HttpMethod::tryFrom($method);
+
+            if (!$method) {
+                throw new \InvalidArgumentException('Invalid HTTP method supplied.');
+            }
+        }
+
+        // Ensure we update the division/administration path.
+        if (str_contains($uri->getPath(), '{division}')) {
+            $uri = $uri->withPath(str_replace('{division}', $this->division, $uri->getPath()));
+        }
+
+
+        if ($body && $method === HttpMethod::GET) {
+            // Technically they can, but this is generally not accepted by any sane server.
+            throw new \InvalidArgumentException('GET requests cannot have a body.');
+        }
+
+
+        if (!empty($headers) && array_is_list($headers)) {
+            throw new \InvalidArgumentException('Headers must be an associative array');
+        }
+
+        $request = $this->manager->requestFactory->createRequest(
+            $method->value,
+            $uri
+        );
+
+        $body ??= $request->getBody();
+        if ($body) {
+            if ($body instanceof RequestAwareStreamInterface) {
+                $request = $body->configureRequest($request);
+            }
+            $request = $request->withBody($body);
+        }
+
+        $headers = array_merge([
+            'Accept' => 'application/json',
+            'User-Agent' => ExactConnectionManager::USER_AGENT,
+            'X-ExactOnline-Client' => $this->configuration->clientId(),
+            'Prefer' => 'return=representation',
+            'Accept-Language' => $this->language
+        ], $headers);
+
+
+        foreach ($headers as $key => $value) {
+            $request = $request->withHeader($key, $value);
+        }
+
+        return $request;
+    }
+
     final protected function sendRequest(RequestInterface $request): ResponseInterface
     {
         // In case something manages to sneak by, there shouldn't be any, but better to be safe.
@@ -495,14 +518,29 @@ abstract class ExactEnvironment /*permits Exact*/
         return $response;
     }
 
+    final public function getUri(
+        DataSource|DataSourceMeta|string $source,
+        /**
+         * If disabled, {division} will NOT be hydrated.
+         * This *SHOULD* cause the URI to contain '%7Bdivision%7D'.
+         * as part of its url instead of the division number if it required it.
+         */
+        bool                             $hydrateDivision = true
+    ): Uri
+    {
+        $source = MetaDataLoader::meta($source);
+
+        $endpoint = $source->endpoint;
+        if ($hydrateDivision && str_contains($endpoint, '{division}')) {
+            $endpoint = str_replace('{division}', $this->division, $endpoint);
+        }
+
+        return $this->manager->apiBaseUri()->withPath($endpoint);
+    }
+
     final protected function updateRateLimits(ResponseInterface $response): void
     {
         $this->rateLimits ??= RateLimits::createFromResponse($this, $response);
-    }
-
-    final public function getRateLimits(): RateLimits
-    {
-        return $this->rateLimits ??= RateLimits::createFromLimits($this);
     }
 
     final protected function decodeResponseToJson(
@@ -573,51 +611,65 @@ abstract class ExactEnvironment /*permits Exact*/
     }
 
     /**
-     * Removes accessToken, refreshToken and authorizationCode.
-     *
-     * This does _NOT_ delete client data (ClientID, ClientSecret and/or WebHookSecret)!
-     *
-     * @return bool
+     * Allows one to set the token manually, bypassing the initial configuration step during construction.
+     * Not recommended to use, one should provide this data during construction.
      */
-    final public function logout(): bool
+    final public function setOrganizationAccessToken(string $accessToken, \DateTimeInterface $expires): static
     {
-        $this->configuration->organizationAccessToken = null;
-        $this->configuration->organizationRefreshToken = null;
-        $this->configuration->organizationAuthorizationCode = null;
-        $this->configuration->organizationAccessTokenExpires = null;
-        return $this->saveConfiguration();
-    }
+        $e = new RefreshCredentials($this, CredentialsType::AccessToken);
+        $this->manager->dispatcher->dispatch($e);
 
-    final public function fileUploadAllowed(string|\SplFileInfo $file, ?string &$denyReason = null): bool
-    {
-        if (is_string($file)) {
-            if (!file_exists($file)) {
-                $denyReason = "File {$file} does not exist.";
-                return false;
-            }
-            if (!is_readable($file)) {
-                $denyReason = "File {$file} is not readable.";
-                return false;
-            }
-
-            $file = new \SplFileInfo($file);
+        if ($e->isPropagationStopped()) {
+            return $this;
         }
 
-        $this->manager->dispatcher->dispatch(
-            $event = new FileUpload($this, $file)
+        $this->configuration->organizationAccessToken = $accessToken;
+
+        // Once an access token has been loaded, it cannot be used again (Expires after 1-2 minutes anyway)
+        // Pointless to store at this point
+        $this->configuration->organizationAuthorizationCode = null;
+        $this->configuration->organizationAccessTokenExpires = $expires;
+
+        return $this;
+    }
+
+    /**
+     * Allows one to set the token manually, bypassing the initial configuration step during construction.
+     * Not recommended to use, one should provide this data during construction.
+     */
+    final public function setOrganizationRefreshToken(string $organizationRefreshToken): static
+    {
+        if (!$this->configuration->hasAccessToken()) {
+            // This is a complete lie, we could, but we're not enabling this stupid behavior.
+            throw new \LogicException('Cannot set refresh token without an access token present.');
+        }
+
+        $e = new RefreshCredentials($this, CredentialsType::RefreshToken);
+        $this->manager->dispatcher->dispatch($e);
+
+        if ($e->isPropagationStopped()) {
+            return $this;
+        }
+
+        $this->configuration->organizationRefreshToken = $organizationRefreshToken;
+
+        return $this;
+    }
+
+    final protected function saveConfiguration(): bool
+    {
+        $e = new CredentialsChange(
+            $this,
+            $this->configuration->toOrganizationData()
         );
 
+        $this->manager->dispatcher->dispatch($e);
 
-        if ($event->isPropagationStopped()) {
-            $denyReason = $event->denyReason;
+        if ($e->isPropagationStopped()) {
             return false;
         }
 
-        return true;
+        return $e->isSaveSuccess();
     }
 
-    final public function uuid(?string $seed = null): string
-    {
-        return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
-    }
 }

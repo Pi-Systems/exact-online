@@ -46,12 +46,12 @@ class DevContainer implements ContainerInterface
             }
 
 
-            $this->services[$id] = [$priority, $wakeup, $shutdown??null, $meta??[]];
+            $this->services[$id] = [$priority, $wakeup, $shutdown ?? null, $meta];
         }
         $this->sort();
     }
 
-    public function register(int $priority, string $id, \closure $wakeup, ?\closure $shutdown = null, array $meta = [])
+    public function register(int $priority, string $id, \closure $wakeup, ?\closure $shutdown = null, array $meta = []): void
     {
         if (!class_exists($id)) {
             throw new \RuntimeException(
@@ -118,7 +118,7 @@ class DevContainer implements ContainerInterface
         return array_key_exists($id, $this->services);
     }
 
-    private function sort()
+    private function sort(): void
     {
         if ($this->sorted) { return; }
         uasort($this->services, fn($a, $b) => ($b[0] <=> $a[0]));

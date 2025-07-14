@@ -9,12 +9,12 @@ trait PublicPropertySerializeTrait
         return $this->__serialize();
     }
 
-    public function serialize()
+    public function serialize(): array
     {
         return $this->jsonSerialize();
     }
 
-    public function unserialize(string $data)
+    public function unserialize(string $data): void
     {
         $this->__unserialize(
             json_decode($data, true)

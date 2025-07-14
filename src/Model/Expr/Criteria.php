@@ -10,29 +10,73 @@ use PISystems\ExactOnline\Util\MetaDataLoader;
 
 
 /**
- * Warning: Logical exclusion
- *          One cannot use both an expression and the expansion property at the same time.
- *          It is not viable for this class to filter this out during construction.
- *          Ensure this logical exclusion is dealt with BEFORE using it to construct the final query.
+ * The criteria follow the base Doctrine Criteria and support nearly all normal doctrine settings.
+ * With a notable exception towards `firstResult`.
  *
- *          See rules at https://support.exactonline.com/community/s/knowledge-base#All-All-DNO-Simulation-query-string-options
+ * Example:
+ * ```
+ *  // Select everything in the `Exact\Me` entity.
+ *  Criteria::create(Exact\Me::class);
  *
- * Warning: Logical trap
- *          One cannot use maxResults greater than 1 if no selection was made.
+ *  // Select only the `CurrentDivision` in the `Exact\Me` entity.
+ *  Criteria::create(Exact\Me::class)->select('CurrentDivision');
  *
- *          This rule is not really made explicit in the docs, but it is a logica result of other
- *          stated rules...
- *          This is a seriously frustrating rule.
- *          One can bypass it by using $selection = ['*'], but this will destroy performance.
- *          Use at your own risk.
+ *  // Select `ID`,`Account` and `AmountFC` from the top 5 `Exact\TransactionLines` entries.
+ *  // Where `Account` is equal to 1235
+ *  // Ordered by `DocumentNumber` in descending order.
+ *  Criteria::create(Exact\TransactionLines::class)
+ *   ->select(['ID','Account','AmountFC'])
+ *   ->where(
+ *      Criteria::expr()->eq('Account', 1235)
+ *   )
+ *  ->setMaxResult(5)
+ *  ->orderBy(['DocumentNumber'=>'DESC'])
+ * ```
+ *
+ * Deprecation/Disallowed:
+ *
+ * `->firstResult`
+ *
+ * This (core) criteria is (mostly) not available.
+ * Only very select endpoints (Those made BEFORE March 1st 2017) have this enabled.
+ * Even then, only if the customer is still authorized to use this parameter.
+ *
+ * To prevent BC breaks, we opted to keep this entry in but add a clear warning that this should not be used.
+ * Instead, the $skipToken was added to the Criteria as a local variable.
+ * Please note, $skipToken can only be used on elements that have a primary key.
+ *
+ *
+ * Limitations:
+ *
+ * *`->where(...)->expand(...)`* are mutually exclusive.
+ *
+ * One cannot use both an expression and the expansion property at the same time.
+ * The criteria itself will not aid in detecting this error.
+ *
+ * See the rules at
+ * https://support.exactonline.com/community/s/knowledge-base#All-All-DNO-Simulation-query-string-options
+ *
+ * General warning:
+ *
+ * *`->maxResults(>1)`*
+ *
+ * *SHOULD* be accompanied by a `->select([...])`.
+ * The criteria will still work without (as `->select()` will default to `*`); However.
+ * The stress placed on the Exact server can easily go beyond its computational limit and error out.
+ *
+ * It is highly recommended to only use `->maxResults(>1)` when also only selecting a few fields.
  */
 class Criteria extends BaseCriteria
 {
     public ExpressionBuilder $expression;
 
-    private static ?\WeakMap $expressionBuilders = null;
-    private static ExpressionBuilder|null $expressionBuilder = null;
-
+    /**
+     * Sets what columns/attributes should be returned while retrieving the data.
+     * This is crucial in keeping the amount of data low / limiting the amount of `useless` data being transferred.
+     * Defaults to: ['*']
+     * Try to fill this for any entity that returns more than ~5-10 attributes.
+     * It can (and will) significantly increase transfer/query speed.
+     */
     public array $selection = [] {
         get => $this->selection;
         set {
@@ -40,6 +84,12 @@ class Criteria extends BaseCriteria
         }
     }
 
+    /**
+     * oData expansion allows one to ask the result to have expanded collections.
+     * There is no check on this during criteria creation, as it cannot know all the rules for said collection.
+     * Use in combination with the meta-Hydration functionality to load subcollections without having to call for
+     * those collections separately.
+     */
     public array $expansion = [] {
         get => $this->expansion;
         set {
@@ -47,7 +97,6 @@ class Criteria extends BaseCriteria
         }
     }
 
-    private ?DataSourceMeta $meta = null;
 
     /**
      * Set to true to allow using setFirstResult without crashing out.
@@ -58,23 +107,58 @@ class Criteria extends BaseCriteria
      */
     public bool $allowSkipVariable = false;
 
+    /** @noinspection PhpUnusedFieldDefaultValueInspection NOT redundant, inspection is wrong. */
+    private ?DataSourceMeta $meta = null;
+    private static ?\WeakMap $expressionBuilders = null;
+    private static ExpressionBuilder|null $expressionBuilder = null;
 
     public function __construct(
+        /**
+         * Base expression (Doctrine base class accepted.)
+         */
         ?Expression                           $expression = null,
         /**
-         * Optional, but if passed, ensures property safety.
-         * Note: Do not use if working with subentries. (Eg: Account/Owner eq ...)
+         * Lets the criteria know what DataSource it is filtering for.
+         * This ensures column selections are possible.
+         * But more importantly, allows `$filter` to be written correctly.
+         * Without this the criteria is still usable, but will require values to already be transformed.
+         * With this set, one may simply use php scalar (primitive) values, and the criteria will deal with it.
+         * Alternatively, One may also set this during the `ExactVisitor` constructor, though one loses column validation
+         * during criteria creation.
          */
         null|string|DataSource|DataSourceMeta $source = null,
         /**
-         * Note: If nothing is added here, the variable $top=1 is automatically added.
-         * (This is not our restriction)
+         * Sets what columns/attributes should be returned while retrieving the data.
+         * This is crucial in keeping the amount of data low / limiting the amount of `useless` data being transferred.
+         * Defaults to: ['*']
+         * Try to fill this for any entity that returns more than ~5-10 attributes.
+         * It can (and will) significantly increase transfer/query speed.
          */
         array $selection = ['*'],
+        /**
+         * oData expansion allows one to ask the result to have expanded collections.
+         * There is no check on this during criteria creation, as it cannot know all the rules for said collection.
+         * Use in combination with the meta-Hydration functionality to load subcollections without having to call for
+         * those collections separately.
+         */
         ?array         $expansion = [],
+        /**
+         * No different from Doctrine base.
+         * `[$key => $type].`
+         *
+         * Limited $type to `ASC|DESC`
+         */
         ?array         $orderings = null,
         /**
-         * Exact does not support offsetting by a number (Due to 'we dont know how to optimize) reasons.
+         * Alternative for `firstResult` which Exact no longer really supports.
+         * Skips all entries up-to key and starts printing from then.
+         *      Note: This *does* cause instability during calls, as the token will not snapshot the `modified` date of an
+         *      entity.
+         *      Instead, it is re-evaluated every call.
+         *      This means; If the entity is changed between being given the token, and by request time, the resulting
+         *      page may be completely different.
+         *      There is no real solution to this without having a full snapshot of the result table on the first request.
+         *      Deal with it, it should not really pose an issue.
          */
         public ?string $skipToken = null {
             get => $this->skipToken;
@@ -86,8 +170,9 @@ class Criteria extends BaseCriteria
             }
         },
         /**
-         * Add the $inlinecount=allpages entry to any one call
-         * @var bool
+         * Flags that the `$inlinecount=allpages` flag should be enabled.
+         * This flag does nothing for most calls as the hydrator will not care.
+         * It is only useful during 'manual' parsing of the result data.
          */
         public bool    $inlineCount = false
     )
@@ -116,15 +201,28 @@ class Criteria extends BaseCriteria
         return $this;
     }
 
+    /**
+     * Checks if criteria is compatible with the supplied DataSource.
+     *
+     * @param string|DataSource|DataSourceMeta $source
+     * @return bool
+     */
     public function isFrom(
         string|DataSource|DataSourceMeta $source
     ): bool
     {
-        if (null === $this->meta) { return true; } // This criteria matches everything, so of-course we match
+        if (null === $this->meta) {
+            return true;
+        } // Criteria matches everything, so of-course we match
 
         return MetaDataLoader::meta($source)->name === $this->meta->name;
     }
 
+    /**
+     * @param string|DataSource|DataSourceMeta|null $source
+     * @return Criteria
+     * @see Criteria
+     */
     public static function create(
         null|string|DataSource|DataSourceMeta $source = null,
     ): Criteria
@@ -132,6 +230,20 @@ class Criteria extends BaseCriteria
         return new self(null, $source);
     }
 
+    public static function fromDoctrine(?BaseCriteria $base, null|string|DataSource|DataSourceMeta $source = null): Criteria
+    {
+        $criteria = Criteria::create($source);
+
+        if (!$base) {
+            return $criteria;
+        }
+
+        $criteria->where($base->getWhereExpression());
+        $criteria->orderBy($base->orderings());
+        $criteria->setMaxResults($base->getMaxResults());
+        $criteria->setFirstResult($base->getFirstResult());
+        return $criteria;
+    }
 
     public function expression(): ExpressionBuilder
     {
@@ -160,7 +272,83 @@ class Criteria extends BaseCriteria
         );
     }
 
-    protected function toValidPropertyStack(string|iterable $properties, bool $allowSubEntry = false) : array
+    /**
+     * Sets what columns/attributes should be returned while retrieving the data.
+     * This is crucial in keeping the amount of data low / limiting the amount of `useless` data being transferred.
+     * Defaults to: ['*']
+     * Try to fill this for any entity that returns more than ~5-10 attributes.
+     * It can (and will) significantly increase transfer/query speed.
+     */
+    public function select(string|iterable $properties) : self
+    {
+        $this->selection = $this->toValidPropertyStack($properties, true);
+        return $this;
+    }
+
+    /**
+     * oData expansion allows one to ask the result to have expanded collections.
+     * There is no check on this during criteria creation, as it cannot know all the rules for said collection.
+     * Use in combination with the meta-Hydration functionality to load subcollections without having to call for
+     * those collections separately.
+     */
+    public function expand(string|iterable $properties): self
+    {
+        $this->expansion = $this->toValidPropertyStack($properties);
+        return $this;
+    }
+
+    /**
+     * This (core) criteria is (mostly) not available.
+     * Only very select endpoints (Those made BEFORE March 1st 2017) have this enabled.
+     * Even then, only if the customer is still authorized to use this parameter.
+     *
+     * To prevent BC breaks, we opted to keep this entry in but add a clear warning that this should not be used.
+     * Instead, the $skipToken was added to the Criteria as a local variable.
+     * Please note, $skipToken can only be used on elements that have a primary key.
+     */
+    public function setFirstResult(?int $firstResult): Criteria
+    {
+        if (
+            0 === $firstResult ||
+            null === $firstResult ||
+            $this->allowSkipVariable
+        ) {
+            return parent::setFirstResult($firstResult);
+        }
+
+        throw new \RuntimeException(
+            "All endpoints after march 1st 2017 Exact no longer support offsetting by a number.\n" .
+            "If you're sure this endpoint still supports it, set \$allowSkipVariable to true in the criteria.\n".
+            "See https://support.exactonline.com/community/s/knowledge-base#All-All-DNO-Simulation-query-string-options"
+        );
+    }
+
+    /**
+     * No different from Doctrine base.
+     *  `[$key => $type].`
+     *
+     *  Limited $type to `ASC|DESC`
+     *
+     * @var array{ string : 'ASC'|'DESC' } $orderings
+     */
+    public function orderBy(array $orderings): Criteria
+    {
+        foreach ($orderings as $property => $ordering) {
+            if ($this->meta && !$this->meta->hasProperty($property)) {
+                throw new \InvalidArgumentException("Property {$property} does not exist within {$this->meta->name}");
+            }
+
+            $ordering = strtolower($ordering);
+            if (!in_array($ordering, ['asc', 'desc'])) {
+                throw new \InvalidArgumentException(
+                    "Ordering direction {$ordering} is not possible. (asc, desc)"
+                );
+            }
+        }
+        return parent::orderBy($orderings);
+    }
+
+    protected function toValidPropertyStack(string|iterable $properties, bool $allowSubEntry = false): array
     {
         if (is_string($properties)) {
             $properties = [$properties];
@@ -201,55 +389,5 @@ class Criteria extends BaseCriteria
 
         }
         return $s;
-    }
-
-    /**
-     * @param string|iterable $properties
-     * @return Criteria
-     */
-    public function select(string|iterable $properties) : self
-    {
-        $this->selection = $this->toValidPropertyStack($properties, true);
-        return $this;
-    }
-
-    public function expand(string|iterable $properties): self
-    {
-        $this->expansion = $this->toValidPropertyStack($properties);
-        return $this;
-    }
-
-    public function setFirstResult(?int $firstResult): Criteria
-    {
-        if (
-            0 === $firstResult ||
-            null === $firstResult ||
-            $this->allowSkipVariable
-        ) {
-            return parent::setFirstResult($firstResult);
-        }
-
-        throw new \RuntimeException(
-            "All endpoints after march 1st 2017 Exact no longer support offsetting by a number.\n" .
-            "If you're sure this endpoint still supports it, set \$allowSkipVariable to true in the criteria.\n".
-            "See https://support.exactonline.com/community/s/knowledge-base#All-All-DNO-Simulation-query-string-options"
-        );
-    }
-
-    public function orderBy(array $orderings): Criteria
-    {
-        foreach ($orderings as $property => $ordering) {
-            if ($this->meta && !$this->meta->hasProperty($property)) {
-                throw new \InvalidArgumentException("Property {$property} does not exist within {$this->meta->name}");
-            }
-
-            $ordering = strtolower($ordering);
-            if (!in_array($ordering, ['asc', 'desc'])) {
-                throw new \InvalidArgumentException(
-                    "Ordering direction {$ordering} is not possible. (asc, desc)"
-                );
-            }
-        }
-        return parent::orderBy($orderings);
     }
 }

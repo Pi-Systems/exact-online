@@ -114,7 +114,6 @@ final class DataSourceMeta
         ];
     }
 
-
     public static function createFromClass(string $name): self
     {
         $props = ['name' => $name, 'key' => 'ID', 'pageSize' => 60, 'endpoint' => 'NotSet', 'methods' => [], 'properties' => [], 'required' => []];
@@ -190,7 +189,7 @@ final class DataSourceMeta
     {
         return array_keys(array_filter(
             $this->properties,
-            fn(array $props) => in_array(HttpMethod::class, $props['methods'], true),
+            fn(array $props) => in_array($method, $props['methods'], true),
         ));
     }
 

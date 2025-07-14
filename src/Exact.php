@@ -2,6 +2,7 @@
 
 namespace PISystems\ExactOnline;
 
+use Doctrine\Common\Collections\Criteria as DoctrineCriteria;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Exceptions\ExactResponseError;
 use PISystems\ExactOnline\Exceptions\MethodNotSupported;
@@ -35,10 +36,6 @@ class Exact extends ExactEnvironment
      * For anything more complex, please use the matching() method.
      *
      * @psalm-template T $entry
-     * @param DataSource|DataSourceMeta|string $source
-     * @param string $id
-     * @param Criteria|null $criteria
-     * @param bool $cached
      * @return T|null
      * @template T
      */
@@ -61,13 +58,7 @@ class Exact extends ExactEnvironment
     }
 
     /**
-     * Short-cut to find(...,Criteria...->select('ID'), ...) ? true : false
-     *
-     * @param DataSource|DataSourceMeta|string $source
-     * @param string $id
-     * @param Criteria|null $criteria
-     * @param bool $cached
-     * @return bool
+     * Short-cut to `find(...,Criteria...->select('ID'), ...) ? true : false`
      */
     public function exists(
         DataSource|DataSourceMeta|string $source,
@@ -84,23 +75,40 @@ class Exact extends ExactEnvironment
     }
 
     /**
+     * This returns a generator that acts as if all results are just one continues stream.
+     * In reality, one is receiving pages of either 60 or 1000 entries (See the DataSource meta).
+     *
+     * Note: In case of an exact length reply (120 entries in a 60 max per-page DataSource), one will consume *3* calls.
+     *       This is a logical consequence due to how Exact calculates the `__next` token.
+     *       (Even with $countInline we can't be certain, Exact is telling us there is a `__next`).
+     *
+     * Reminder: The cache can be a real pain when dealing with rapidly changing sets.
+     *           Consider inverting its logic in your own application and only enabling it for things that rarely change.
+     *
      * @psalm-template T $entry
-     * @param DataSource|DataSourceMeta|string $source
-     * @param string|Criteria|null $criteria If criteria is a string, it will be treated as THE ENTIRE QUERY PARAM (Aka: Raw mode)
-     * @param bool $cache Note: Cache is on the data layer, hydration is still performed normally.
-     *                     While less performant, this does allow library updates without destroying existing caches.
-     *
-     *
      * @return \Generator<T>
      * @template T
      */
     public function matching(
         DataSource|DataSourceMeta|string $source,
-        null|string|Criteria $criteria = null,
+        /**
+         * If criteria is a string, it will be treated as THE ENTIRE QUERY PARAM (Aka: Raw mode)
+         * If the supplied criteria is from Doctrine base (or a different class extending) it will be converted.
+         */
+        null|string|DoctrineCriteria|Criteria $criteria = null,
+        /**
+         * Note: Cache is on the data layer, hydration is still performed normally.
+         * While less performant, this does allow library AND USER DEFINED DATASOURCES to be updated without
+         * destroying existing caches.
+         */
         bool                 $cache = true
     ): \Generator
     {
         $source = MetaDataLoader::meta($source);
+
+        if ($criteria instanceof DoctrineCriteria && !$criteria instanceof Criteria) {
+            $criteria = Criteria::fromDoctrine($criteria);
+        }
 
         if ($criteria instanceof Criteria && !$criteria->isFrom($source)) {
             throw new \LogicException(
@@ -224,7 +232,7 @@ class Exact extends ExactEnvironment
 
         $request = $this
             ->createRequest($uri)
-            // Silly enough, we do not want to send a Accept header (Even though it should be text/plain)
+            // Silly enough, we do not want to send an Accept header (Even though it should be text/plain)
             ->withoutHeader('Accept');
         $response = $this->sendAuthenticatedRequest($request);
 
@@ -238,8 +246,6 @@ class Exact extends ExactEnvironment
 
     /**
      * Warning: Returns a NEW DataSource object upon success
-     * @param DataSource $object
-     * @return string|null
      */
     public function create(DataSource $object): null|string
     {
@@ -271,14 +277,18 @@ class Exact extends ExactEnvironment
     }
 
     /**
-     * Warning: Updates the PASSED object, this does NOT return a new object.
-     *          Return value is the same as the one passed.
+     * Updates the PASSED object, this does NOT return a new object.
+     * Return value is the same as the one passed.
      *
-     * @param DataSource $object
-     * @param array|null $fields Update only these fields (Warning: Not supported on every endpoint!)
-     * @return bool
+     * If a different object is required, clone it before calling.
      */
-    public function update(DataSource $object, ?array $fields = null): bool
+    public function update(
+        DataSource $object,
+        /**
+         * Update only these fields (Warning: Not supported on every endpoint!)
+         */
+        ?array     $fields = null
+    ): bool
     {
         $meta = $object::meta();
         if (!$meta->supports(HttpMethod::UPDATE)) {

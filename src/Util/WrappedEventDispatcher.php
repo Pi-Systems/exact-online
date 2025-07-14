@@ -18,12 +18,7 @@ class WrappedEventDispatcher extends ExactEventDispatcher
     private array $mocks = [];
 
     public function __construct(
-        private readonly ExactEventDispatcher $wrappedDispatcher,
-        /**
-         * If set, passing a string into hasListenersForEvent will create any ExactEvents without calling their constructor.
-         * This allows for
-         */
-        bool $allowReflectionChecking = true
+        private readonly ExactEventDispatcher $wrappedDispatcher
     )
     {
         parent::__construct();

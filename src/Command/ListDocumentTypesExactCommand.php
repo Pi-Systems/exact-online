@@ -29,7 +29,8 @@ class ListDocumentTypesExactCommand extends Command
             'Deletable',
         ]);
 
-        $query = $this->exact->matching(DocumentTypes::class);
+        $meta = DocumentTypes::meta();
+        $query = $this->exact->matching($meta);
         $c = 0;
         /** @var DocumentTypes $type */
         foreach ($query as $type) {
@@ -43,6 +44,10 @@ class ListDocumentTypesExactCommand extends Command
                 $type->DocumentIsUpdatable ? '✔️' : '❌',
                 $type->DocumentIsDeletable ? '✔️' : '❌',
             ]);
+
+            if ($c > 0 && $c % $meta->pageSize === 0) {
+                $table->render();
+            }
         }
 
         $table->render();
@@ -50,6 +55,4 @@ class ListDocumentTypesExactCommand extends Command
 
         return self::SUCCESS;
     }
-
-
 }

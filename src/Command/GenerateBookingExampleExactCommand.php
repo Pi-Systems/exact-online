@@ -26,7 +26,7 @@ class GenerateBookingExampleExactCommand extends Command
         parent::__construct('exact:generate-booking');
     }
 
-    protected function configure()
+    protected function configure(): void
     {
         $this->addArgument('number', InputArgument::REQUIRED, 'What invoice number should we attach this to?');
         $this->addArgument('journal', InputArgument::REQUIRED, 'What journal should we attach this to?');

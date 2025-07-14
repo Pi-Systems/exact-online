@@ -1,4 +1,6 @@
 {
+  "name": "pi-systems/exact-online",
+  "description": "Integration for Exact-Online",
   "type": "project",
   "license": "proprietary",
   "minimum-stability": "stable",

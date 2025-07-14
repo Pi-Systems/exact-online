@@ -221,7 +221,7 @@ class Criteria extends BaseCriteria
     /**
      * @param string|DataSource|DataSourceMeta|null $source
      * @return Criteria
-     * @see Criteria
+     *@see AbstractCriteria
      */
     public static function create(
         null|string|DataSource|DataSourceMeta $source = null,

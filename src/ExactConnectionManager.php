@@ -34,7 +34,6 @@ class ExactConnectionManager
 
     private \WeakMap $instances;
     public readonly ExactEventDispatcher|WrappedEventDispatcher $dispatcher;
-    public readonly SeededUuidProviderInterface $uuidProvider;
 
     public function __construct(
         public readonly ExactAppConfigurationInterface     $appConfiguration,
@@ -44,7 +43,7 @@ class ExactConnectionManager
         public readonly ClientInterface                    $client,
         public readonly LoggerInterface                    $logger,
         null|EventDispatcherInterface|ExactEventDispatcher $dispatcher = null,
-        ?SeededUuidProviderInterface                       $uuidProvider = null
+        public readonly SeededUuidProviderInterface $uuidProvider = new SeededUuidProvider(),
     )
     {
         if ($dispatcher instanceof ExactEventDispatcher) {
@@ -53,7 +52,6 @@ class ExactConnectionManager
             $this->dispatcher = new WrappedEventDispatcher($dispatcher);
         }
         $this->instances = new \WeakMap();
-        $this->uuidProvider ??= new SeededUuidProvider();
     }
 
     public function createRunTimeConfiguration(

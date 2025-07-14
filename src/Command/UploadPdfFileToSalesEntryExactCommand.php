@@ -35,7 +35,6 @@ class UploadPdfFileToSalesEntryExactCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $this->exact->offline = true;
         $documentID = $input->getOption('document');
         $invoiceID = $input->getOption('invoice');
 
@@ -123,7 +122,6 @@ class UploadPdfFileToSalesEntryExactCommand extends Command
             $output->writeln("<info>Uploaded file {$file} to Exact document {$documentID} for invoice {$invoice->InvoiceNumber}.</info>");
         }
 
-        $this->exact->offline = false;
         // Attach to invoice if needed
         if ($documentID && $invoiceID) {
             $invoice->Document = $documentID;

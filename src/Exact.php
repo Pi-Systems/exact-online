@@ -98,7 +98,7 @@ class Exact extends ExactEnvironment
         null|string|DoctrineCriteria|Criteria $criteria = null,
         /**
          * Note: Cache is on the data layer, hydration is still performed normally.
-         * While less performant, this does allow library AND USER DEFINED DATASOURCES to be updated without
+         * While less performant, this does allow library AND USER DEFINED DATASOURCES to be update without
          * destroying existing caches.
          */
         bool                 $cache = true
@@ -287,7 +287,7 @@ class Exact extends ExactEnvironment
         /**
          * Update only these fields (Warning: Not supported on every endpoint!)
          */
-        ?array     $fields = null
+        ?array $fields = null
     ): bool
     {
         $meta = $object::meta();

@@ -1,0 +1,351 @@
+<?php
+
+namespace PISystems\ExactOnline\Entity\Activities;
+
+use PISystems\ExactOnline\Builder as Exact;
+use PISystems\ExactOnline\Builder\Edm;
+use PISystems\ExactOnline\Entity\Workflow\RequestAttachments;
+use PISystems\ExactOnline\Enum\HttpMethod;
+use PISystems\ExactOnline\Model\DataSource;
+
+/**
+ * @see https://start.exactonline.nl/docs/HlpRestAPIResourcesDetails.aspx?name=ActivitiesTasks
+ * @see https://www.odata.org/documentation/odata-version-2-0/overview/#AbstractTypeSystem
+ */
+#[Exact\PageSize(60)]
+#[Exact\Endpoint("/api/v1/{division}/activities/Tasks", "Tasks")]
+#[Exact\Method(HttpMethod::GET)]
+#[Exact\Method(HttpMethod::POST)]
+class Tasks extends DataSource
+{
+
+    /**
+     * The Primary key
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Key]
+    #[Exact\Required]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $ID = null;
+
+    /**
+     * The account that is related to the task
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Account = null;
+
+    /**
+     * The name of the account
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $AccountName = null;
+
+    /**
+     * The end date by which the task has to be realized
+     *
+     *
+     * @var null|\DateTimeInterface
+     */
+    #[EDM\DateTime]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|\DateTimeInterface $ActionDate = null;
+
+    /**
+     * Attachments linked to the task
+     *
+     *
+     * @var ?array A collection of Tasks\RequestAttachments
+     */
+    #[EDM\Collection(RequestAttachments::class, 'RequestAttachments')]
+    #[Exact\Method(HttpMethod::GET)]
+    public ?array $Attachments = null;
+
+    /**
+     * The contact person that is related to the task
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Contact = null;
+
+    /**
+     * The name of the contact person
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $ContactFullName = null;
+
+    /**
+     * Creation date
+     *
+     *
+     * @var null|\DateTimeInterface
+     */
+    #[EDM\DateTime]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|\DateTimeInterface $Created = null;
+
+    /**
+     * User ID of the creator
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $Creator = null;
+
+    /**
+     * Name of the creator
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $CreatorFullName = null;
+
+    /**
+     * Custom type of the task. If both TaskType and CustomTaskType are specified then TaskType is preferred. This value is write-only.
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $CustomTaskType = null;
+
+    /**
+     * The description of the task
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Description = null;
+
+    /**
+     * The division of the task
+     *
+     *
+     * @var null|int Int32
+     */
+    #[EDM\Int32]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|int $Division = null;
+
+    /**
+     * The document that is linked to the task
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Document = null;
+
+    /**
+     * The subject of the document
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $DocumentSubject = null;
+
+    /**
+     * The employee that is linked to the task.Note:For POST/PUT: This field value is only used when the "Employees" featureset is enabled. For GET: To see the field value required "Employee" featureset. Otherwise, the field always return NULL value.
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Employee = null;
+
+    /**
+     * The human readable key
+     *
+     *
+     * @var null|int Int32
+     */
+    #[EDM\Int32]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|int $HID = null;
+
+    /**
+     * Last modified date
+     *
+     *
+     * @var null|\DateTimeInterface
+     */
+    #[EDM\DateTime]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|\DateTimeInterface $Modified = null;
+
+    /**
+     * User ID of the last modifier
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $Modifier = null;
+
+    /**
+     * Name of the last modifier
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $ModifierFullName = null;
+
+    /**
+     * The notes of the task
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Notes = null;
+
+    /**
+     * The opportunity linked to the task
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Opportunity = null;
+
+    /**
+     * The name of the opportunity
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $OpportunityName = null;
+
+    /**
+     * The project linked to the task
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $Project = null;
+
+    /**
+     * The description of the project
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $ProjectDescription = null;
+
+    /**
+     * Status: 0 = Void, 5 = Rejected, 10 = Draft, 20 = Open, 30 = Approved, 40 = Realized, 50 = Processed
+     *
+     *
+     * @var null|int Int32
+     */
+    #[EDM\Int32]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|int $Status = null;
+
+    /**
+     * The description of the status
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $StatusDescription = null;
+
+    /**
+     * The type of the task. This value is write-only.0 = Other (default), 1 = Call, 2 = Request for information, 3 = Investigate, 4 = Correspondence, 5 = Create an appointment, 6 = Create a quotation
+     *
+     *
+     * @var null|int Int32
+     */
+    #[EDM\Int32]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|int $TaskType = null;
+
+    /**
+     * The description of the type of the task
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    public null|string $TaskTypeDescription = null;
+
+    /**
+     * The user that has to realize the task
+     *
+     *
+     * @var null|string Basic GUID type
+     */
+    #[EDM\Guid]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $User = null;
+
+    /**
+     * The user name
+     *
+     *
+     * @var null|string
+     */
+    #[EDM\UTF8String]
+    #[Exact\Method(HttpMethod::GET)]
+    #[Exact\Method(HttpMethod::POST)]
+    public null|string $UserFullName = null;
+}

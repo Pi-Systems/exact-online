@@ -103,7 +103,7 @@ final class DataSourceMeta
             'methods' => array_map(fn(HttpMethod $method) => $method->value, $this->methods),
             'properties' => array_map(fn($property) => [
                 'required' => $property['required'],
-                'type' => $property['type'] instanceof EdmEncodableDataStructure
+                'type' => $property['type'] instanceof EdmDataStructure
                     ? [
                         'class' => get_class($property['type']),
                         'arguments' => $property['type']->arguments,

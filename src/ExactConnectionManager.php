@@ -12,7 +12,6 @@ use PISystems\ExactOnline\Polyfill\Validation;
 use PISystems\ExactOnline\Util\SeededUuidProvider;
 use PISystems\ExactOnline\Util\WrappedEventDispatcher;
 use Psr\Cache\CacheItemPoolInterface;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Client\ClientInterface;
 use Psr\Http\Message\RequestFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
@@ -33,26 +32,21 @@ class ExactConnectionManager
     public const string USER_AGENT = 'PISystems/ExactOnline';
 
     private \WeakMap $instances;
-    public readonly ExactEventDispatcher|WrappedEventDispatcher $dispatcher;
 
     public function __construct(
-        public readonly ExactAppConfigurationInterface     $appConfiguration,
-        public readonly CacheItemPoolInterface             $cache,
-        public readonly RequestFactoryInterface            $requestFactory,
-        public readonly UriFactoryInterface                $uriFactory,
-        public readonly ClientInterface                    $client,
-        public readonly LoggerInterface                    $logger,
-        null|EventDispatcherInterface|ExactEventDispatcher $dispatcher = null,
-        public readonly SeededUuidProviderInterface $uuidProvider = new SeededUuidProvider(),
+        public readonly ExactAppConfigurationInterface              $appConfiguration,
+        public readonly CacheItemPoolInterface                      $cache,
+        public readonly RequestFactoryInterface                     $requestFactory,
+        public readonly UriFactoryInterface                         $uriFactory,
+        public readonly ClientInterface                             $client,
+        public readonly LoggerInterface                             $logger,
+        public readonly WrappedEventDispatcher|ExactEventDispatcher $dispatcher = new ExactEventDispatcher(),
+        public readonly SeededUuidProviderInterface                 $uuidProvider = new SeededUuidProvider(),
     )
     {
-        if ($dispatcher instanceof ExactEventDispatcher) {
-            $this->dispatcher = $dispatcher;
-        } else {
-            $this->dispatcher = new WrappedEventDispatcher($dispatcher);
-        }
         $this->instances = new \WeakMap();
     }
+
 
     public function createRunTimeConfiguration(
         ?string             $authorizationCode,

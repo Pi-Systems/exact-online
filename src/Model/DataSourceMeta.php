@@ -64,7 +64,7 @@ final class DataSourceMeta
 
             foreach ($property['methods'] as $i => $method) {
                 if (is_string($method)) {
-                    $method = $property['methods'][$k] = HttpMethod::from($method);
+                    $method = $property['methods'][$i] = HttpMethod::from($method);
                 }
 
                 if (!($method instanceof HttpMethod)) {

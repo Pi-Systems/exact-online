@@ -44,7 +44,7 @@ class UTF8CodeString extends EdmDataStructure implements FilterEncodableDataStru
             return null;
         }
 
-        return new TypedValue(null, sprintf('%' . $this->length . '.' . $this->length . 's',
+        return new TypedValue('', sprintf('%' . $this->length . '.' . $this->length . 's',
             ltrim(mb_convert_encoding($value, 'UTF-8', mb_detect_encoding($value))) // trim before sprintf, weird stuff happens if we you don't.
         ));
     }

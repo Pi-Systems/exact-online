@@ -75,10 +75,14 @@ class DateTime extends EdmDataStructure implements FilterEncodableDataStructure,
         return $value->format(\DateTimeInterface::ATOM);
     }
 
-    public function decode(float|array|bool|int|string|null $value): mixed
+    public function decode(\DateTimeInterface|float|array|bool|int|string|null $value): mixed
     {
         if (empty($value)) {
             return null;
+        }
+
+        if ($value instanceof \DateTimeInterface) {
+            return $value;
         }
 
         // Seriously?! And o2 prides itself on being a standard... get real.

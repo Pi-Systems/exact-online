@@ -90,6 +90,11 @@ abstract class ExactEnvironment /*permits Exact*/
         );
     }
 
+    final public function hasTokens(): bool
+    {
+        return $this->configuration->hasAccessToken() || $this->configuration->hasRefreshToken();
+    }
+
     final public function oAuthUri(): UriInterface {
         return $this->manager->generateOAuthUri(
             $this->configuration->clientId(),

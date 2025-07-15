@@ -661,7 +661,7 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this;
     }
 
-    final protected function saveConfiguration(): bool
+    final public function saveConfiguration(): bool
     {
         $e = new CredentialsChange(
             $this,

@@ -6,6 +6,7 @@ use Doctrine\Common\Collections\Expr\Comparison;
 use Doctrine\Common\Collections\Expr\CompositeExpression;
 use Doctrine\Common\Collections\Expr\ExpressionVisitor;
 use Doctrine\Common\Collections\Expr\Value;
+use Infinite\FormBundle\Tests\CheckboxGrid\Entity\Salesman;
 use Override;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\FilterEncodableDataStructure;
@@ -79,9 +80,9 @@ class ExactVisitor extends ExpressionVisitor
             Comparison::GTE => $this->numerical('ge', $field, $value),
             Comparison::IN => $this->in($field, $value),
             Comparison::NIN => $this->andExpressions([$this->in($field, $value)]) . ' eq false',
-            Comparison::CONTAINS => $this->function('contains', $field, $value),
+            Comparison::CONTAINS => $this->andExpressions([$this->function('substringof', $field, $value)]) . ' eq true',
             Comparison::STARTS_WITH => $this->function('startswith', $field, $value),
-            Comparison::ENDS_WITH =>  $this->function('endswith', $field, $value),
+            Comparison::ENDS_WITH => $this->function('endswith', $field, $value),
             ExactComparison::LOWER => $this->function('tolower', $field, $value),
             ExactComparison::UPPER => $this->function('toupper', $field, $value),
             ExactComparison::SUBSTRING => $this->substring($field, $value),
@@ -111,17 +112,17 @@ class ExactVisitor extends ExpressionVisitor
         };
     }
 
-    public function andExpressions(array $expressions) : string
+    public function andExpressions(array $expressions): string
     {
-        return '('.implode(' and ', $expressions).')';
+        return '(' . implode(' and ', $expressions) . ')';
     }
 
-    public function orExpressions(array $expressions) : string
+    public function orExpressions(array $expressions): string
     {
-        return '('.implode(' or ', $expressions).')';
+        return '(' . implode(' or ', $expressions) . ')';
     }
 
-    public function notExpression(array $expressions) : string
+    public function notExpression(array $expressions): string
     {
         return $this->andExpressions($expressions) . ' eq false';
     }
@@ -167,7 +168,7 @@ class ExactVisitor extends ExpressionVisitor
         return sprintf('substring(%s, %d)', $field, $start) . ' eq ' . $value;
     }
 
-    public function function(string $name, string $field, mixed $value): string
+    public function function (string $name, string $field, mixed $value): string
     {
         if ($value instanceof TypedValue) {
             $value = $value->getEncoded();
@@ -213,7 +214,7 @@ class ExactVisitor extends ExpressionVisitor
             }
         }
 
-        return implode( ' ', [
+        return implode(' ', [
             $field,
             $type,
             is_int($value) ? $value : number_format($value, $this->precision, '.', ''),
@@ -226,7 +227,7 @@ class ExactVisitor extends ExpressionVisitor
             $value = $value->getEncoded();
         }
 
-        return implode( ' ', [
+        return implode(' ', [
             $field,
             $type,
             $value,

@@ -23,7 +23,7 @@ trait PublicPropertySerializeTrait
 
     public function __serialize(): array
     {
-        return self::meta()->deflate($this);
+        return self::meta()->deflate($this, skipNull: true);
     }
 
     public function __unserialize(array $data): void

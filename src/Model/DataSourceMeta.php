@@ -267,7 +267,7 @@ final class DataSourceMeta
                 $value = $edm->encode($value);
             }
 
-            if ($skipNull && $value === null) {
+            if ($skipNull && $value === null || ($skipNull && is_array($value) && empty($value))) {
                 continue;
             }
 

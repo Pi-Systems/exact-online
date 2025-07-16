@@ -101,7 +101,11 @@ class Exact extends ExactEnvironment
          * While less performant, this does allow library AND USER DEFINED DATASOURCES to be update without
          * destroying existing caches.
          */
-        bool                 $cache = true
+        bool                             $cache = true,
+        /**
+         * If set to false, the data is returned as recieved
+         */
+        bool                             $hydrate = true
     ): \Generator
     {
         $source = MetaDataLoader::meta($source);
@@ -151,7 +155,11 @@ class Exact extends ExactEnvironment
             $next = $content['d']['__next'] ?? null;
 
             foreach ($data as $item) {
-                yield $source->hydrate($item);
+                if ($hydrate) {
+                    yield $source->hydrate($item);
+                } else {
+                    yield $item;
+                }
             }
 
             if ($next) {

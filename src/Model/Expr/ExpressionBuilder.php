@@ -15,7 +15,8 @@ class ExpressionBuilder extends BaseExpressionBuilder
 
     }
 
-    protected function assertFieldExists(string $field) : void {
+    protected function assertFieldExists(string $field): void
+    {
         if ($this->meta) {
             if (!$this->meta->hasProperty($field)) {
                 throw new \InvalidArgumentException("Field '$field' does not exist");
@@ -35,10 +36,10 @@ class ExpressionBuilder extends BaseExpressionBuilder
         return new ExactComparison($field, ExactComparison::UPPER, $value);
     }
 
-    public function substring(string $field, string $value, int $position, ?int $length = null, ): ExactComparison
+    public function substring(string $field, string $value, int $position, ?int $length = null): ExactComparison
     {
         $this->assertFieldExists($field);
-        return new ExactComparison($field, ExactComparison::SUBSTRING, [$position, $length??-1, $value]);
+        return new ExactComparison($field, ExactComparison::SUBSTRING, [$position, $length ?? -1, $value]);
     }
 
     public function eq(string $field, mixed $value): Comparison
@@ -105,6 +106,15 @@ class ExpressionBuilder extends BaseExpressionBuilder
     {
         $this->assertFieldExists($field);
         return parent::contains($field, $value);
+    }
+
+    /**
+     * Case-Insensitive version of contains
+     */
+    public function icontains(string $field, mixed $value): Comparison
+    {
+        $this->assertFieldExists($field);
+        return new ExactComparison($field, ExactComparison::ICONTAINS, $value);
     }
 
     public function memberOf(string $field, mixed $value): Comparison

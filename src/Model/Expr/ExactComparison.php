@@ -14,6 +14,8 @@ class ExactComparison extends Comparison
     final public const string LOWER = 'lower';
     final public const string UPPER = 'upper';
     final public const string SUBSTRING = 'substring';
+    /** @var string Case-Insentive version of contains, leveraging tolower function */
+    final public const string ICONTAINS = 'icontains';
     /** @var string Writes contents of as-is, value is discarded. */
     final public const string RAW = 'raw';
 }

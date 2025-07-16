@@ -80,12 +80,15 @@ class ExactVisitor extends ExpressionVisitor
             Comparison::GTE => $this->numerical('ge', $field, $value),
             Comparison::IN => $this->in($field, $value),
             Comparison::NIN => $this->andExpressions([$this->in($field, $value)]) . ' eq false',
-            Comparison::CONTAINS => $this->andExpressions([$this->function('substringof', $field, $value)]) . ' eq true',
+            Comparison::CONTAINS => $this->andExpressions([$this->function('indexof', $field, $value)]) . ' gt -1',
             Comparison::STARTS_WITH => $this->function('startswith', $field, $value),
             Comparison::ENDS_WITH => $this->function('endswith', $field, $value),
             ExactComparison::LOWER => $this->function('tolower', $field, $value),
             ExactComparison::UPPER => $this->function('toupper', $field, $value),
             ExactComparison::SUBSTRING => $this->substring($field, $value),
+            ExactComparison::ICONTAINS => $this->andExpressions([
+                    $this->function('indexof', 'tolower(' . $field . ')', $value)
+                ]) . ' gt -1',
             default => throw new \InvalidArgumentException("Filter {$op} is not supported."),
         };
     }

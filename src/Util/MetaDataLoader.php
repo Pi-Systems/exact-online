@@ -25,7 +25,12 @@ class MetaDataLoader
         self::$metaCache ??= json_decode(file_get_contents(Compiler::EXACT_META_CACHE), true);
 
         if (self::$metaCache && array_key_exists($source, self::$metaCache)) {
-            return self::$objectMetaCache[$source] ??= DataSourceMeta::createFromArray(self::$metaCache[$source]);
+            $data = self::$metaCache[$source];
+
+            if ($data instanceof DataSourceMeta) {
+                return $data;
+            }
+            return self::$objectMetaCache[$source] ??= DataSourceMeta::createFromArray($data);
         }
 
         return self::$metaCache[$source] ??= DataSourceMeta::createFromClass($source);

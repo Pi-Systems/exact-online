@@ -33,6 +33,7 @@ class ExactConnectionManager
     public const string USER_AGENT = 'PISystems/ExactOnline';
 
     private \WeakMap $instances;
+    private ?UriInterface $tokenUri = null;
 
     public function __construct(
         public readonly ExactAppConfigurationInterface              $appConfiguration,

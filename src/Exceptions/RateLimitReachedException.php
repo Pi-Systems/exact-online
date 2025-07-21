@@ -3,12 +3,12 @@
 namespace PISystems\ExactOnline\Exceptions;
 
 use PISystems\ExactOnline\Events\RateLimitReached;
-use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\ExactEnvironment;
 
 class RateLimitReachedException extends ExactException
 {
     public function __construct(
-        Exact $exact,
+        ExactEnvironment $exact,
         public readonly RateLimitReached $event
     )
     {

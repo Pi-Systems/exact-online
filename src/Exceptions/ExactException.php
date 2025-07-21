@@ -3,12 +3,12 @@
 namespace PISystems\ExactOnline\Exceptions;
 
 use JetBrains\PhpStorm\Pure;
-use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\ExactEnvironment;
 
 abstract class ExactException extends \RuntimeException
 {
     #[Pure] public function __construct(
-        public readonly Exact $exact,
+        public readonly ExactEnvironment $exact,
         string $message = "",
         int $code = 0,
         ?\Throwable $previous = null)

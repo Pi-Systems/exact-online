@@ -3,12 +3,12 @@
 namespace PISystems\ExactOnline\Exceptions;
 
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\ExactEnvironment;
 
 class MethodNotSupported extends ExactException
 {
     public function __construct(
-        Exact $exact,
+        ExactEnvironment $exact,
         string $source,
         HttpMethod $method,
     )

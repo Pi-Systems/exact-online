@@ -156,11 +156,6 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this;
     }
 
-    final public function getRateLimits(): RateLimits
-    {
-        return $this->rateLimits ??= RateLimits::createFromDefaults();
-    }
-
     /**
      * Determines with internal logic if the file is allowed to be uploaded.
      *
@@ -541,6 +536,91 @@ abstract class ExactEnvironment /*permits Exact*/
         return $request;
     }
 
+    public static function createRateLimitGuardedCallback(
+        self     $exact,
+        \Closure $callback,
+        /**
+         * A handler one may register to handle the sleep timer.
+         * Or to just do things when we want to call sleep.
+         * The return value is used for the timeout (if set, recalculated if return is null)
+         *
+         * Note: Once this returns, the sleep() call will be executed (After timeout recalculation).
+         */
+        null|\Closure|SleepHandlerInterface $sleepHandler = null,
+        /**
+         * How many times are we allowed to sleep?
+         * This is only really useful if previous warnings are ignored and multiple instances are running simultaneously.
+         * This should otherwise never be required.
+         *
+         * Warning: Every attempt is 1 minute is 1 minute
+         * Warning: Only numbers above 0 make sense, 0 is treated as 1.
+         */
+        int                                 $limit = INF,
+
+    ): \Closure
+    {
+        return function () use ($callback, $sleepHandler, $limit, $exact) {
+            $limit = max(abs($limit), 1);
+
+            $response = null;
+            $attempts = 0;
+            do {
+                try {
+                    $response = $callback();
+                } catch (RateLimitReachedException $exception) {
+                    // Do not catch if it's the daily limit.
+                    $limits = $exception->event->dailyLimits;
+                    if ($limits->isDailyLimited()) {
+                        throw $exception;
+                    }
+
+                    $timeout =
+                        time() - $limits->minuteResetTime->getTimestamp();
+
+                    if ($sleepHandler) {
+                        if ($sleepHandler instanceof \Closure) {
+                            $sleepHandler =
+                                new CallbackSleepHandler($sleepHandler);
+                        }
+
+                        $timeout =
+                            $sleepHandler->sleep(
+                                $timeout,
+                                $attempts,
+                                $request,
+                                $limits
+                            ) ??
+                            time() - $limits->minuteResetTime->getTimestamp();
+                    }
+
+                    if ($timeout > 0) {
+                        try {
+                            do {
+                                $timeout = sleep($timeout);
+
+                                if ($timeout === 192 &&
+                                    PHP_OS_FAMILY === 'Windows') {
+                                    // Sigh
+                                    $timeout = 0;
+                                }
+                            } while ($timeout > 0);
+                        } catch (\ValueError) {
+                        }
+                    }
+                }
+            } while ($attempts++ < $limit);
+
+            if ($attempts >= $limit) {
+                throw new ExactCommunicationError(
+                    $exact,
+                    "Exceeded configured (await) rate limit of {$limit} attempts."
+                );
+            }
+
+            return $response;
+        };
+    }
+
     /**
      * This only guards against the minute rate limit error.
      * The daily will still throw an error.
@@ -548,7 +628,7 @@ abstract class ExactEnvironment /*permits Exact*/
      * Note: Ensure the {division} tags are already resolved before using this.
      * @throws ExactCommunicationError|RateLimitReachedException
      */
-    public function createRateLimitGuardedCall(
+    public function sendRateLimitGuardedRequest(
         RequestInterface                    $request,
         /**
          * A handler one may register to handle the sleep timer.
@@ -569,70 +649,12 @@ abstract class ExactEnvironment /*permits Exact*/
         int                                 $limit = INF,
     ): ResponseInterface
     {
-        if (!$this->guardRateLimits) {
-            throw new ExactCommunicationError(
-                $this,
-                new \LogicException('Rate limit guard is disabled.')
-            );
-        }
-
-        $limit = max(abs($limit), 1);
-        $sleepHandler ??= $this->sleepHandler;
-
-        $response = null;
-        $attempts = 0;
-        do {
-            try {
-                $response = $this->_sendRequest($request);
-            } catch (RateLimitReachedException $exception) {
-                // Do not catch if it's the daily limit.
-                $limits = $exception->event->dailyLimits;
-                if ($limits->isDailyLimited()) {
-                    throw $exception;
-                }
-
-                $timeout = time() - $limits->minuteResetTime->getTimestamp();
-
-                if ($sleepHandler) {
-                    if ($sleepHandler instanceof \Closure) {
-                        $sleepHandler = new CallbackSleepHandler($sleepHandler);
-                    }
-
-                    $timeout =
-                        $sleepHandler->sleep(
-                            $timeout,
-                            $attempts,
-                            $request,
-                            $limits
-                        ) ??
-                        time() - $limits->minuteResetTime->getTimestamp();
-                }
-
-                if ($timeout > 0) {
-                    try {
-                        do {
-                            $timeout = sleep($timeout);
-
-                            if ($timeout === 192 &&
-                                PHP_OS_FAMILY === 'Windows') {
-                                // Sigh
-                                $timeout = 0;
-                            }
-                        } while ($timeout > 0);
-                    } catch (\ValueError) {
-                    }
-                }
-            }
-        } while (null === $response && $attempts++ < $limit);
-
-        if ($attempts >= $limit) {
-            throw new ExactCommunicationError(
-                $this,
-                "Exceeded configured (await) rate limit of {$limit} attempts."
-            );
-        }
-
-        return $response;
+        return self::createRateLimitGuardedCallback(
+            $this,
+            fn() => $this->_sendRequest($request),
+            $sleepHandler,
+            $limit
+        )();
     }
 
     /**
@@ -656,7 +678,7 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         if ($this->guardRateLimits) {
-            return $this->createRateLimitGuardedCall($request);
+            return $this->sendRateLimitGuardedRequest($request);
         }
 
         return $this->_sendRequest($request);

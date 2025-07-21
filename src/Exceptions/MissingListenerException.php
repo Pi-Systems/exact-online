@@ -3,13 +3,13 @@
 namespace PISystems\ExactOnline\Exceptions;
 
 use JetBrains\PhpStorm\Pure;
-use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\ExactEnvironment;
 
 class MissingListenerException extends ExactException
 {
     #[Pure] public function __construct(
         public readonly string $eventName,
-        Exact $exact,
+        ExactEnvironment $exact,
         string $message = "",
         int $code = 0,
         ?\Throwable $previous = null)

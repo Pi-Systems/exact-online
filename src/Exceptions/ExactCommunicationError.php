@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Exceptions;
 
-use PISystems\ExactOnline\Exact;
+use PISystems\ExactOnline\Model\ExactEnvironment;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Http\Client\NetworkExceptionInterface;
 use Psr\Http\Client\RequestExceptionInterface;
@@ -10,7 +10,7 @@ use Psr\Http\Client\RequestExceptionInterface;
 class ExactCommunicationError extends ExactException
 {
     public function __construct(
-        Exact                                                                        $exact,
+        ExactEnvironment $exact,
         public readonly string|ClientExceptionInterface|RequestExceptionInterface|NetworkExceptionInterface $exception,
     )
     {

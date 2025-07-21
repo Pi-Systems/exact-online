@@ -646,7 +646,7 @@ abstract class ExactEnvironment /*permits Exact*/
          * Warning: Every attempt is 1 minute is 1 minute
          * Warning: Only numbers above 0 make sense, 0 is treated as 1.
          */
-        int                                 $limit = INF,
+        int $limit = 5000,
     ): ResponseInterface
     {
         return self::createRateLimitGuardedCallback(

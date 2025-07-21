@@ -31,37 +31,19 @@ use Psr\Http\Message\UriInterface;
 /*sealed*/// All methods in this class are final, the class itself is not.
 abstract class ExactEnvironment /*permits Exact*/
 {
-    /**
-     * @var bool Guard against the rate limit exception (Only the minute one, the daily limit will still throw)
-     *
-     *           WARNING: This *WILL* lock up your application for several minutes and even up-to 83-minutes at most.
-     *           At which point, no matter what, the error will be thrown that the daily rate limit has been reached.
-     *
-     *          This method works only if using sendRequest.
-     *          Note: The application will still run the RateLimitReached event.
-     *          If that events propagation is halted, the application will not figure out it should interrupt before sending.
-     *          Thus, likely triggering a ClientException during the call.
-     *
-     *          This is purposely not done through the event system, as we want this to be available per call.
-     *          Making this an event trigger would introduce nasty 'is this the request I just made?' shenanigans.
-     *          The sleep handler for a call that syncs the crm and a call that sends an invoice may have very different handlers.
-     */
-    public bool $guardRateLimits = true;
+    public bool $guardRateLimits;
+    public bool $offline;
 
-    /**
-     * The default sleep handler to call whenever $guardRateLimits is active and a sleep event is requested.
-     * This is only used if the call itself has no sleep handler.
-     */
-    public ?SleepHandlerInterface $sleepHandler = null;
-
-    public bool $offline = false;
     public ?int $division = null {
         get => $this->configuration->division;
         set {
             if ($value !== $this->configuration->division) {
 
-                $administrationSwitchEvent = new DivisionChange($this, $this->division, $value);
-                $this->manager->dispatcher->dispatch($administrationSwitchEvent);
+                $administrationSwitchEvent =
+                    new DivisionChange($this, $this->division, $value);
+                $this->manager->dispatcher->dispatch(
+                    $administrationSwitchEvent
+                );
                 if ($administrationSwitchEvent->isPropagationStopped()) {
                     return;
                 }
@@ -74,14 +56,45 @@ abstract class ExactEnvironment /*permits Exact*/
         #[\SensitiveParameter]
         private readonly RuntimeConfiguration $configuration,
         protected ExactConnectionManager      $manager,
-        public string                         $language = 'nl-NL,en;q=0.9'
+        public string                 $language = 'nl-NL,en;q=0.9',
+        /**
+         * The default sleep handler to call whenever $guardRateLimits is active and a sleep event is requested.
+         * This is only used if the call itself has no sleep handler.
+         */
+        public ?SleepHandlerInterface $sleepHandler = null,
+        /**
+         * Guard against the rate limit exception (Only the minute one, the daily limit will still throw)
+         *
+         * WARNING: This *WILL* lock up your application for several minutes and even up-to 83-minutes at most.
+         * At which point, no matter what, the error will be thrown that the daily rate limit has been reached.
+         *
+         * This method works only if using sendRequest.
+         * Note: The application will still run the RateLimitReached event.
+         * If that events propagation is halted, the application will not figure out it should interrupt before sending.
+         * Thus, likely triggering a ClientException during the call.
+         *
+         * This is purposely not done through the event system, as we want this to be available per call.
+         * Making this an event trigger would introduce nasty 'is this the request I just made?' shenanigans.
+         * The sleep handler for a call that syncs the crm and a call that sends an invoice may have very different handlers.
+         *
+         * If left null, this option will be enabled automatically should php be running in cli mode.
+         */
+        ?bool                         $guardRateLimits = null,
+        /**
+         * Should exact start in offline mode?
+         * (Any request to sendRequest/_sendRequest will fail)
+         */
+        bool                          $startInOffline = false
     )
     {
+        $this->guardRateLimits ??= $guardRateLimits ?? (php_sapi_name() == 'cli');
+        $this->offline = !$startInOffline;
     }
 
     final public function isAuthorized(): bool
     {
         $configuration = $this->configuration;
+
         /**
          * Before creating an Exact instance, we can check if we are even capable of using it.
          * The configuration itself can figure this out on its own (Provided persisting was configured properly).
@@ -98,7 +111,8 @@ abstract class ExactEnvironment /*permits Exact*/
              * The valid access token does not check for the availability of a refresh token.
              * So the token may be invalid, but with a refresh token the library can easily get a new access code.
              */
-            ($configuration->hasAccessToken() || $configuration->hasRefreshToken()) ||
+            ($configuration->hasAccessToken() ||
+                $configuration->hasRefreshToken()) ||
             /**
              * No valid access token, no refresh code.
              * Do we have an authorizationCode?
@@ -112,7 +126,8 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final public function hasTokens(): bool
     {
-        return $this->configuration->hasAccessToken() || $this->configuration->hasRefreshToken();
+        return $this->configuration->hasAccessToken() ||
+            $this->configuration->hasRefreshToken();
     }
 
     final public function oAuthUri(): UriInterface
@@ -129,6 +144,7 @@ abstract class ExactEnvironment /*permits Exact*/
      * It *MUST NOT* contain anything other than the code.
      *
      * @param string $code
+     *
      * @return $this
      */
     final public function setOrganizationAuthorizationCode(
@@ -136,6 +152,7 @@ abstract class ExactEnvironment /*permits Exact*/
     ): static
     {
         $this->configuration->organizationAuthorizationCode = $code;
+
         return $this;
     }
 
@@ -149,15 +166,20 @@ abstract class ExactEnvironment /*permits Exact*/
      *
      * Note: This method's execution can be influenced by listening to the `FileUpload` event.
      */
-    final public function fileUploadAllowed(string|\SplFileInfo $file, ?string &$denyReason = null): bool
+    final public function fileUploadAllowed(
+        string|\SplFileInfo $file,
+        ?string             &$denyReason = null
+    ): bool
     {
         if (is_string($file)) {
             if (!file_exists($file)) {
                 $denyReason = "File {$file} does not exist.";
+
                 return false;
             }
             if (!is_readable($file)) {
                 $denyReason = "File {$file} is not readable.";
+
                 return false;
             }
 
@@ -168,9 +190,9 @@ abstract class ExactEnvironment /*permits Exact*/
             $event = new FileUpload($this, $file)
         );
 
-
         if ($event->isPropagationStopped()) {
             $denyReason = $event->denyReason;
+
             return false;
         }
 
@@ -229,14 +251,17 @@ abstract class ExactEnvironment /*permits Exact*/
                     "Multiple orderings are only supported on oData4+",
                 );
             }
-            $query[] = sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
+            $query[] =
+                sprintf('$orderby=%s %s', $orderings[0][0], $orderings[0][1]);
         }
 
         if ($criteria->inlineCount) {
             $query[] = '$inlineCount=allpages';
         }
 
-        if ($criteria->skipToken && $criteria->allowSkipVariable && $criteria->getFirstResult()) {
+        if ($criteria->skipToken &&
+            $criteria->allowSkipVariable &&
+            $criteria->getFirstResult()) {
             throw new \LogicException(
             // How would this even work?
             // Do you skip the amount first, then skip to token possibly missing?
@@ -247,7 +272,9 @@ abstract class ExactEnvironment /*permits Exact*/
 
         if ($max = $criteria->getMaxResults()) {
             if (empty($criteria->selection)) {
-                throw new \LogicException("Cannot set a max without a selection present.");
+                throw new \LogicException(
+                    "Cannot set a max without a selection present."
+                );
             }
 
             if ($max < 1) {
@@ -266,7 +293,6 @@ abstract class ExactEnvironment /*permits Exact*/
         if ($criteria->allowSkipVariable && $criteria->getFirstResult()) {
             $query[] = '$skip=' . $criteria->getFirstResult();
         }
-
 
         if (!empty($query)) {
             $uri = $uri->withQuery(implode('&', $query));
@@ -288,6 +314,7 @@ abstract class ExactEnvironment /*permits Exact*/
         $this->configuration->organizationRefreshToken = null;
         $this->configuration->organizationAuthorizationCode = null;
         $this->configuration->organizationAccessTokenExpires = null;
+
         return $this->saveConfiguration();
     }
 
@@ -323,7 +350,9 @@ abstract class ExactEnvironment /*permits Exact*/
         $me = $meta->hydrate(reset($data));
 
         if (!$me->CurrentDivision) {
-            throw new ExactResponseError('Unable to determine current division.', $request, $response);
+            throw new ExactResponseError(
+                'Unable to determine current division.', $request, $response
+            );
         }
 
         return $this->division = (int)$me->CurrentDivision;
@@ -374,7 +403,6 @@ abstract class ExactEnvironment /*permits Exact*/
                 $this->createRequest($uri, HttpMethod::POST, new FormStream())
             );
 
-
         $now = time();
         $response = $this->sendRequest($request);
         $data = $this->decodeResponseToJson($request, $response);
@@ -387,7 +415,11 @@ abstract class ExactEnvironment /*permits Exact*/
                 throw new ExactCommunicationError(
                     $this,
                     new ExactResponseError(
-                        sprintf('[%s] %s', $content['error'], $content['error_description']),
+                        sprintf(
+                            '[%s] %s',
+                            $content['error'],
+                            $content['error_description']
+                        ),
                         $request,
                         $response
                     )
@@ -429,7 +461,10 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         $token = $content['access_token'];
-        $expires = \DateTimeImmutable::createFromTimestamp($now + (int)$content['expires_in']);
+        $expires =
+            \DateTimeImmutable::createFromTimestamp(
+                $now + (int)$content['expires_in']
+            );
         $refresh = $content['refresh_token'];
 
         $this->setOrganizationAccessToken($token, $expires);
@@ -451,24 +486,31 @@ abstract class ExactEnvironment /*permits Exact*/
             $method = HttpMethod::tryFrom($method);
 
             if (!$method) {
-                throw new \InvalidArgumentException('Invalid HTTP method supplied.');
+                throw new \InvalidArgumentException(
+                    'Invalid HTTP method supplied.'
+                );
             }
         }
 
         // Ensure we update the division/administration path.
         if (str_contains($uri->getPath(), '{division}')) {
-            $uri = $uri->withPath(str_replace('{division}', $this->division, $uri->getPath()));
+            $uri =
+                $uri->withPath(
+                    str_replace('{division}', $this->division, $uri->getPath())
+                );
         }
-
 
         if ($body && $method === HttpMethod::GET) {
             // Technically they can, but this is generally not accepted by any sane server.
-            throw new \InvalidArgumentException('GET requests cannot have a body.');
+            throw new \InvalidArgumentException(
+                'GET requests cannot have a body.'
+            );
         }
 
-
         if (!empty($headers) && array_is_list($headers)) {
-            throw new \InvalidArgumentException('Headers must be an associative array');
+            throw new \InvalidArgumentException(
+                'Headers must be an associative array'
+            );
         }
 
         $request = $this->manager->requestFactory->createRequest(
@@ -489,9 +531,8 @@ abstract class ExactEnvironment /*permits Exact*/
             'User-Agent' => ExactConnectionManager::USER_AGENT,
             'X-ExactOnline-Client' => $this->configuration->clientId(),
             'Prefer' => 'return=representation',
-            'Accept-Language' => $this->language
+            'Accept-Language' => $this->language,
         ], $headers);
-
 
         foreach ($headers as $key => $value) {
             $request = $request->withHeader($key, $value);
@@ -557,7 +598,13 @@ abstract class ExactEnvironment /*permits Exact*/
                         $sleepHandler = new CallbackSleepHandler($sleepHandler);
                     }
 
-                    $timeout = $sleepHandler->sleep($timeout, $attempts, $request, $limits) ??
+                    $timeout =
+                        $sleepHandler->sleep(
+                            $timeout,
+                            $attempts,
+                            $request,
+                            $limits
+                        ) ??
                         time() - $limits->minuteResetTime->getTimestamp();
                 }
 
@@ -566,7 +613,8 @@ abstract class ExactEnvironment /*permits Exact*/
                         do {
                             $timeout = sleep($timeout);
 
-                            if ($timeout === 192 && PHP_OS_FAMILY === 'Windows') {
+                            if ($timeout === 192 &&
+                                PHP_OS_FAMILY === 'Windows') {
                                 // Sigh
                                 $timeout = 0;
                             }
@@ -578,8 +626,12 @@ abstract class ExactEnvironment /*permits Exact*/
         } while (null === $response && $attempts++ < $limit);
 
         if ($attempts >= $limit) {
-            throw new ExactCommunicationError($this, "Exceeded configured (await) rate limit of {$limit} attempts.");
+            throw new ExactCommunicationError(
+                $this,
+                "Exceeded configured (await) rate limit of {$limit} attempts."
+            );
         }
+
         return $response;
     }
 
@@ -594,7 +646,9 @@ abstract class ExactEnvironment /*permits Exact*/
             str_contains($path, '{division}') ||
             str_contains($path, '%7Bdivision%7D')
         ) {
-            throw new \RuntimeException("URI Path still contains division parameters, please resolve before calling sendRequest.");
+            throw new \RuntimeException(
+                "URI Path still contains division parameters, please resolve before calling sendRequest."
+            );
         }
 
         if ($this->offline) {
@@ -618,7 +672,8 @@ abstract class ExactEnvironment /*permits Exact*/
         if (null !== $this->configuration->limits) {
             if ($this->configuration->limits->isRateLimited()) {
 
-                $limitEvent = new RateLimitReached($this, $this->configuration->limits);
+                $limitEvent =
+                    new RateLimitReached($this, $this->configuration->limits);
 
                 $this->manager->dispatcher->dispatch($limitEvent);
 
@@ -638,6 +693,7 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         $this->updateRateLimits($response);
+
         return $response;
     }
 
@@ -710,7 +766,11 @@ abstract class ExactEnvironment /*permits Exact*/
             if (isset($content['error_description'])) {
                 throw new ExactCommunicationError(
                     $this,
-                    sprintf('[%s] %s', $content['error'], $content['error_description']),
+                    sprintf(
+                        '[%s] %s',
+                        $content['error'],
+                        $content['error_description']
+                    ),
                 );
 
             }
@@ -739,7 +799,10 @@ abstract class ExactEnvironment /*permits Exact*/
      * Allows one to set the token manually, bypassing the initial configuration step during construction.
      * Not recommended to use, one should provide this data during construction.
      */
-    final public function setOrganizationAccessToken(string $accessToken, \DateTimeInterface $expires): static
+    final public function setOrganizationAccessToken(
+        string             $accessToken,
+        \DateTimeInterface $expires
+    ): static
     {
         $e = new RefreshCredentials($this, CredentialsType::AccessToken);
         $this->manager->dispatcher->dispatch($e);
@@ -762,11 +825,15 @@ abstract class ExactEnvironment /*permits Exact*/
      * Allows one to set the token manually, bypassing the initial configuration step during construction.
      * Not recommended to use, one should provide this data during construction.
      */
-    final public function setOrganizationRefreshToken(string $organizationRefreshToken): static
+    final public function setOrganizationRefreshToken(
+        string $organizationRefreshToken
+    ): static
     {
         if (!$this->configuration->hasAccessToken()) {
             // This is a complete lie, we could, but we're not enabling this stupid behavior.
-            throw new \LogicException('Cannot set refresh token without an access token present.');
+            throw new \LogicException(
+                'Cannot set refresh token without an access token present.'
+            );
         }
 
         $e = new RefreshCredentials($this, CredentialsType::RefreshToken);
@@ -776,7 +843,8 @@ abstract class ExactEnvironment /*permits Exact*/
             return $this;
         }
 
-        $this->configuration->organizationRefreshToken = $organizationRefreshToken;
+        $this->configuration->organizationRefreshToken =
+            $organizationRefreshToken;
 
         return $this;
     }

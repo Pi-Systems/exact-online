@@ -88,7 +88,7 @@ abstract class ExactEnvironment /*permits Exact*/
     )
     {
         $this->guardRateLimits ??= $guardRateLimits ?? (php_sapi_name() == 'cli');
-        $this->offline = !$startInOffline;
+        $this->offline = $startInOffline;
     }
 
     final public function isAuthorized(): bool

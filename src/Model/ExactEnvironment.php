@@ -54,8 +54,6 @@ abstract class ExactEnvironment /*permits Exact*/
      */
     public ?SleepHandlerInterface $sleepHandler = null;
 
-    public bool $treatEmptyAsError = true;
-
     public bool $offline = false;
     public ?int $division = null {
         get => $this->configuration->division;

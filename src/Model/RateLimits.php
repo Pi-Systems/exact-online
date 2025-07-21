@@ -2,20 +2,16 @@
 
 namespace PISystems\ExactOnline\Model;
 
-use PISystems\ExactOnline\Events\RateLimitReached;
-use PISystems\ExactOnline\Exact;
-use PISystems\ExactOnline\Exceptions\RateLimitReachedException;
 use Psr\Http\Message\ResponseInterface;
 
-class RateLimits
+class RateLimits implements \JsonSerializable
 {
     public \DateTimeImmutable $lastRefresh;
     public \DateTimeImmutable $dailyResetTime;
     public \DateTimeImmutable $minuteResetTime;
 
     public function __construct(
-        public readonly Exact  $exact,
-        public int    $dailyRateLimit,
+        public int $dailyRateLimit,
         public int             $dailyRemaining,
         public int             $minuteRateLimit,
         public int             $minuteRemaining,
@@ -34,15 +30,13 @@ class RateLimits
         }
     }
 
-    public static function createFromLimits(
-        Exact $exact,
-        int   $dailyRateLimit = 5000,
-        int   $minuteRateLimit = 60,
-        int   $dailyResetRate = 1000,
+    public static function createFromDefaults(
+        int $dailyRateLimit = 5000,
+        int $minuteRateLimit = 60,
+        int $dailyResetRate = 1000,
     ): RateLimits
     {
         return new self(
-            $exact,
             $dailyRateLimit,
             $dailyRateLimit,
             $dailyResetRate,
@@ -51,18 +45,33 @@ class RateLimits
         );
     }
 
-    public static function createFromResponse(
-        Exact $exact,
-        ResponseInterface $response
-    ): static
+    public function toArray(): array
     {
-        $new = self::createFromLimits($exact);
-        return $new->updateFromResponse($response);
+        return [
+            'dailyRateLimit' => $this->dailyRateLimit,
+            'dailyRemaining' => $this->dailyRemaining,
+            'dailyResetTime' => $this->dailyResetTime->getTimestamp(),
+            'minuteRateLimit' => $this->minuteRateLimit,
+            'minuteRemaining' => $this->minuteRemaining,
+            'minuteResetTime' => $this->minuteResetTime->getTimestamp(),
+        ];
+    }
+
+    public static function createFromArray(array $config): static
+    {
+        return new self(
+            $config['dailyRateLimit'],
+            $config['dailyRemaining'],
+            $config['minuteRateLimit'],
+            $config['minuteRemaining'],
+            $config['dailyResetTime'],
+            $config['minuteResetTime'],
+        );
     }
 
     public function updateFromResponse(
         ResponseInterface $response,
-    ) : self
+    ): self
     {
         $required = [
             'X-RateLimit-Limit' => 'dailyRateLimit',
@@ -76,7 +85,7 @@ class RateLimits
         foreach ($required as $header => $property) {
             $val = $response->getHeaderLine($header);
 
-            if(empty($val)) {
+            if (empty($val)) {
                 continue;
             }
             if (
@@ -101,7 +110,7 @@ class RateLimits
         }
 
         $now = new \DateTimeImmutable();
-        if (($this->lastRefresh->getTimestamp()+60) >= $now->getTimestamp()) {
+        if (($this->lastRefresh->getTimestamp() + 60) >= $now->getTimestamp()) {
             $this->minuteRemaining = $this->minuteRateLimit;
             $this->lastRefresh = $now;
         }
@@ -122,38 +131,20 @@ class RateLimits
         return $this->minuteRemaining <= 0;
     }
 
-    public function getDailyRemaining() : int
+    public function getDailyRemaining(): int
     {
         $this->doRefreshCalculations();
         return $this->dailyRemaining;
     }
 
-    public function getRemainingMinutely() : int
+    public function getRemainingMinutely(): int
     {
         $this->doRefreshCalculations();
         return $this->minuteRemaining;
     }
 
-    /**
-     * @return array{dailyRemaining: int, minutelyRemaining: int}
-     */
-    public function consume(): array
+    public function jsonSerialize(): array
     {
-        $this->doRefreshCalculations();
-
-        if ($this->dailyRemaining) {
-            throw new RateLimitReachedException(
-                $this->exact,
-                new RateLimitReached($this->exact, $this)
-            );
-        }
-
-        $this->minuteRateLimit--;
-        $this->dailyRemaining--;
-
-        return [
-            'dailyRemaining' => $this->dailyRemaining,
-            'minutelyRemaining' => $this->minuteRemaining
-        ];
+        return $this->toArray();
     }
 }

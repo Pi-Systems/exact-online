@@ -5,12 +5,13 @@ namespace PISystems;
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
 use PISystems\ExactOnline\Command\BuildCommand;
-use PISystems\ExactOnline\Events\CredentialsChange;
+use PISystems\ExactOnline\Events\ConfigurationChange;
 use PISystems\ExactOnline\Events\DivisionChange;
 use PISystems\ExactOnline\Events\EventDispatcherUnloading;
 use PISystems\ExactOnline\Exact;
 use PISystems\ExactOnline\ExactConnectionManager;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
+use PISystems\ExactOnline\Model\RateLimits;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\SimpleAbstractLogger;
 use PISystems\ExactOnline\Polyfill\SimpleClosureLogger;
@@ -165,7 +166,7 @@ return [
             $uriFactory,
             $client,
             $logger,
-            $dispatcher,
+            ExactEventDispatcher::fromEventDispatcher($dispatcher),
         ),
         null, [
             'args' => [
@@ -201,7 +202,8 @@ return [
                 'organizationAccessTokenExpires' => null,
                 'organizationRefreshToken' => null,
                 // If left null, then this will be automatically populated the first time it is needed, or when `Exact(Environment)->getAdministration()` is called.
-                'division' => null
+                'division' => null,
+                'limits' => []
             ];
             try {
                 $item = $manager->cache->getItem('organization_authorization_data');
@@ -234,17 +236,18 @@ return [
              *
              * These events will allow one to set up persistence.
              *
-             * @see CredentialsChange Note: The credentials given are a read-only copy of the data at the time of the event.
+             * @see ConfigurationChange Note: The credentials given are a read-only copy of the data at the time of the event.
              * @see DivisionChange Changing the division *WILL* influence everything in the app, do not ignore this event!
              */
             // This method is not available in EventDispatcherInterface, it is part of the ListenerProviderInterface
-            $manager->dispatcher->addEventListener(CredentialsChange::class, function (CredentialsChange $event) use (
+            $manager->dispatcher->addEventListener(ConfigurationChange::class, function (ConfigurationChange $event) use (
                 $save
             ) {
                 $save([
                     'organizationAccessToken' => $event->configuration->organizationAccessToken,
                     'organizationAccessTokenExpires' => $event->configuration->organizationAccessTokenExpires,
                     'organizationRefreshToken' => $event->configuration->organizationRefreshToken,
+                    'limits' => $event->configuration->limits?->toArray() ?? null
                 ]);
             });
             $manager->dispatcher->addEventListener(DivisionChange::class, function (DivisionChange $event) use (
@@ -261,11 +264,13 @@ return [
                 accessToken: $data['organizationAccessToken'],
                 accessTokenExpiry: $data['organizationAccessTokenExpires'],
                 refreshToken: $data['organizationRefreshToken'],
-                division: $data['division']
+                division: $data['division'],
+                limits: RateLimits::createFromArray($data['limits'])
             );
 
             return $manager->create(
-                configuration: $configuration
+                configuration: $configuration,
+
             );
         },
         null,

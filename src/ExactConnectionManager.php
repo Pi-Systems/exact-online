@@ -5,6 +5,7 @@ namespace PISystems\ExactOnline;
 use PISystems\ExactOnline\Events\BeforeCreate;
 use PISystems\ExactOnline\Events\Created;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
+use PISystems\ExactOnline\Model\RateLimits;
 use PISystems\ExactOnline\Model\RuntimeConfiguration;
 use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
@@ -54,6 +55,7 @@ class ExactConnectionManager
         ?\DateTimeInterface $accessTokenExpiry,
         ?string             $refreshToken,
         ?int                $division = null,
+        ?RateLimits $limits = null,
     ): RuntimeConfiguration
     {
         return new RuntimeConfiguration(
@@ -63,6 +65,7 @@ class ExactConnectionManager
             organizationAccessToken: $accessToken,
             organizationAccessTokenExpires: $accessTokenExpiry,
             organizationRefreshToken: $refreshToken,
+            limits: $limits
         );
     }
 
@@ -87,7 +90,6 @@ class ExactConnectionManager
             self::CONN_API_TOKEN_PATH,
         ));
     }
-
 
     public function generateOAuthUri(
         string  $clientId,
@@ -150,7 +152,7 @@ class ExactConnectionManager
         // There should be no more mutations in the dispatcher.
         // (Though mutations may happen in the wrapped, this is not something preventable.)
         $this->dispatcher->lock();
-        return $this->instances[$configuration] ?? (function () use ($configuration) {
+        return $this->instances[$configuration] ?? (function () use ($configuration, $language) {
             $beforeCreateEvent = new BeforeCreate(
                 $configuration->division,
                 $this->cache,
@@ -169,6 +171,7 @@ class ExactConnectionManager
             $exact = new Exact(
                 configuration: $configuration,
                 manager: $this,
+                language: $language
             );
 
             $createdEvent = new Created($exact);

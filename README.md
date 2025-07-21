@@ -134,9 +134,9 @@ Available Implementation:
 
 Once the [ConnectionManager](src/ExactConnectionManager.php) has been constructed, several methods become available:
 
-- [`->createRunTimeConfiguration`](src/ExactConnectionManager.php#generateOAuthUri)
-- [`->generateOAuthUri`](src/ExactConnectionManager.php#generateOAuthUri)
-- [`->create`](src/ExactConnectionManager.php#create)
+- [`->createRunTimeConfiguration`](src/ExactConnectionManager.php)
+- [`->generateOAuthUri`](src/ExactConnectionManager.php)
+- [`->create`](src/ExactConnectionManager.php)
 
 There are several ways to implement the oAuth loop.  
 The most straight forward would be saving the data to a local persistent storage and listening to changes.  
@@ -145,7 +145,7 @@ Then checking if we need to start from the oAuth URL, or we can go ahead and jus
 ```php
     // Example
     use PISystems\ExactOnline\ExactConnectionManager;
-    use PISystems\ExactOnline\Events\CredentialsChange;
+    use PISystems\ExactOnline\Events\ConfigurationChange;
     use \PISystems\ExactOnline\Events\DivisionChange;
     
     $hasLocalConfiguration = false;
@@ -167,8 +167,8 @@ Then checking if we need to start from the oAuth URL, or we can go ahead and jus
 
     // Whenever the AccessCode, TokenExpires or RefreshToken changes, this is called.
     $manager->dispatcher->addEventListener(
-        CredentialsChange::class, 
-        function(CredentialsChange $change) {
+        ConfigurationChange::class, 
+        function(ConfigurationChange $change) {
             // Handle persistence     
             // Do not persist the Authorization code, utterly pointless, It's valid for only a minute.
         }

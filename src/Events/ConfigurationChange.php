@@ -9,14 +9,14 @@ use PISystems\ExactOnline\Model\ExactOrganizationalConfigurationalData;
 /**
  * Fired if no accessToken is available.
  */
-class CredentialsChange extends Event
+class ConfigurationChange extends Event
 {
     private bool $isSuccess = false;
 
     public function __construct(
         public readonly Exact $exact,
         #[\SensitiveParameter]
-        public readonly ExactOrganizationalConfigurationalData $configuration
+        public readonly ExactOrganizationalConfigurationalData $configuration,
     )
     {
     }

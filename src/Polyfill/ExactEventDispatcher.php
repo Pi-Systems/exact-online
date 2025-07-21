@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Polyfill;
 
 use PISystems\ExactOnline\Events\FileUpload;
 use PISystems\ExactOnline\Model\Event;
+use PISystems\ExactOnline\Util\WrappedEventDispatcher;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\EventDispatcher\ListenerProviderInterface;
 
@@ -36,6 +37,14 @@ class ExactEventDispatcher implements EventDispatcherInterface, ListenerProvider
             $this->blacklist = false;
         }
         $this->extensions = [];
+    }
+
+    public static function fromEventDispatcher(EventDispatcherInterface $dispatcher): ExactEventDispatcher
+    {
+        if (!$dispatcher instanceof self) {
+            return new WrappedEventDispatcher($dispatcher);
+        }
+        return $dispatcher;
     }
 
     public function getDefaultEvents(): array

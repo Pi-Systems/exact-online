@@ -4,6 +4,7 @@ namespace PISystems\ExactOnline\Util;
 
 use PISystems\ExactOnline\Model\Event;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\EventDispatcher\StoppableEventInterface;
 
 /**
@@ -12,13 +13,16 @@ use Psr\EventDispatcher\StoppableEventInterface;
  * Using the wrapper exposes a trivial `->lock()` bypass, as they now just have to attach to
  * the wrapped listener.
  * Use this only if you trust the wrapped dispatcher.
+ *
+ * Note: The wrapped dispatcher event handlers are called BEFORE the internal exact events handlers.
+ *       This may cause certain events to not trigger properly if those handlers stop propagation early.
  */
 class WrappedEventDispatcher extends ExactEventDispatcher
 {
     private array $mocks = [];
 
     public function __construct(
-        private readonly ExactEventDispatcher $wrappedDispatcher
+        private readonly EventDispatcherInterface $wrappedDispatcher
     )
     {
         parent::__construct();

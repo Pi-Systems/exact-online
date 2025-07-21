@@ -7,7 +7,7 @@ use GuzzleHttp\Psr7\Uri;
 use PISystems\ExactOnline\Entity\System\Me;
 use PISystems\ExactOnline\Enum\CredentialsType;
 use PISystems\ExactOnline\Enum\HttpMethod;
-use PISystems\ExactOnline\Events\CredentialsChange;
+use PISystems\ExactOnline\Events\ConfigurationChange;
 use PISystems\ExactOnline\Events\DivisionChange;
 use PISystems\ExactOnline\Events\FileUpload;
 use PISystems\ExactOnline\Events\RateLimitReached;
@@ -31,6 +31,28 @@ use Psr\Http\Message\UriInterface;
 /*sealed*/// All methods in this class are final, the class itself is not.
 abstract class ExactEnvironment /*permits Exact*/
 {
+    /**
+     * @var bool Guard against the rate limit exception (Only the minute one, the daily limit will still throw)
+     *
+     *           WARNING: This *WILL* lock up your application for several minutes and even up-to 83-minutes at most.
+     *           At which point, no matter what, the error will be thrown that the daily rate limit has been reached.
+     *
+     *          This method works only if using sendRequest.
+     *          Note: The application will still run the RateLimitReached event.
+     *          If that events propagation is halted, the application will not figure out it should interrupt before sending.
+     *          Thus, likely triggering a ClientException during the call.
+     *
+     *          This is purposely not done through the event system, as we want this to be available per call.
+     *          Making this an event trigger would introduce nasty 'is this the request I just made?' shenanigans.
+     *          The sleep handler for a call that syncs the crm and a call that sends an invoice may have very different handlers.
+     */
+    public bool $guardRateLimits = true;
+
+    /**
+     * The default sleep handler to call whenever $guardRateLimits is active and a sleep event is requested.
+     * This is only used if the call itself has no sleep handler.
+     */
+    public ?SleepHandlerInterface $sleepHandler = null;
 
     public bool $treatEmptyAsError = true;
 
@@ -49,7 +71,6 @@ abstract class ExactEnvironment /*permits Exact*/
             $this->configuration->division = $value;
         }
     }
-    private ?RateLimits $rateLimits = null;
 
     final public function __construct(
         #[\SensitiveParameter]
@@ -60,7 +81,8 @@ abstract class ExactEnvironment /*permits Exact*/
     {
     }
 
-    final public function isAuthorized(): bool {
+    final public function isAuthorized(): bool
+    {
         $configuration = $this->configuration;
         /**
          * Before creating an Exact instance, we can check if we are even capable of using it.
@@ -95,7 +117,8 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this->configuration->hasAccessToken() || $this->configuration->hasRefreshToken();
     }
 
-    final public function oAuthUri(): UriInterface {
+    final public function oAuthUri(): UriInterface
+    {
         return $this->manager->generateOAuthUri(
             $this->configuration->clientId(),
             $this->configuration->redirectUri()
@@ -120,7 +143,7 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final public function getRateLimits(): RateLimits
     {
-        return $this->rateLimits ??= RateLimits::createFromLimits($this);
+        return $this->rateLimits ??= RateLimits::createFromDefaults();
     }
 
     /**
@@ -479,6 +502,92 @@ abstract class ExactEnvironment /*permits Exact*/
         return $request;
     }
 
+    /**
+     * This only guards against the minute rate limit error.
+     * The daily will still throw an error.
+     *
+     * Note: Ensure the {division} tags are already resolved before using this.
+     * @throws ExactCommunicationError|RateLimitReachedException
+     */
+    public function createRateLimitGuardedCall(
+        RequestInterface                    $request,
+        /**
+         * A handler one may register to handle the sleep timer.
+         * Or to just do things when we want to call sleep.
+         * The return value is used for the timeout (if set, recalculated if return is null)
+         *
+         * Note: Once this returns, the sleep() call will be executed (After timeout recalculation).
+         */
+        null|\Closure|SleepHandlerInterface $sleepHandler = null,
+        /**
+         * How many times are we allowed to sleep?
+         * This is only really useful if previous warnings are ignored and multiple instances are running simultaneously.
+         * This should otherwise never be required.
+         *
+         * Warning: Every attempt is 1 minute is 1 minute
+         * Warning: Only numbers above 0 make sense, 0 is treated as 1.
+         */
+        int                                 $limit = INF,
+    ): ResponseInterface
+    {
+        if (!$this->guardRateLimits) {
+            throw new ExactCommunicationError(
+                $this,
+                new \LogicException('Rate limit guard is disabled.')
+            );
+        }
+
+        $limit = max(abs($limit), 1);
+        $sleepHandler ??= $this->sleepHandler;
+
+        $response = null;
+        $attempts = 0;
+        do {
+            try {
+                $response = $this->_sendRequest($request);
+            } catch (RateLimitReachedException $exception) {
+                // Do not catch if it's the daily limit.
+                $limits = $exception->event->dailyLimits;
+                if ($limits->isDailyLimited()) {
+                    throw $exception;
+                }
+
+                $timeout = time() - $limits->minuteResetTime->getTimestamp();
+
+                if ($sleepHandler) {
+                    if ($sleepHandler instanceof \Closure) {
+                        $sleepHandler = new CallbackSleepHandler($sleepHandler);
+                    }
+
+                    $timeout = $sleepHandler->sleep($timeout, $attempts, $request, $limits) ??
+                        time() - $limits->minuteResetTime->getTimestamp();
+                }
+
+                if ($timeout > 0) {
+                    try {
+                        do {
+                            $timeout = sleep($timeout);
+
+                            if ($timeout === 192 && PHP_OS_FAMILY === 'Windows') {
+                                // Sigh
+                                $timeout = 0;
+                            }
+                        } while ($timeout > 0);
+                    } catch (\ValueError) {
+                    }
+                }
+            }
+        } while (null === $response && $attempts++ < $limit);
+
+        if ($attempts >= $limit) {
+            throw new ExactCommunicationError($this, "Exceeded configured (await) rate limit of {$limit} attempts.");
+        }
+        return $response;
+    }
+
+    /**
+     * @throws ExactCommunicationError|RateLimitReachedException
+     */
     final protected function sendRequest(RequestInterface $request): ResponseInterface
     {
         // In case something manages to sneak by, there shouldn't be any, but better to be safe.
@@ -494,12 +603,24 @@ abstract class ExactEnvironment /*permits Exact*/
             throw new OfflineException($this, $request);
         }
 
+        if ($this->guardRateLimits) {
+            return $this->createRateLimitGuardedCall($request);
+        }
+
+        return $this->_sendRequest($request);
+    }
+
+    /**
+     * @throws ExactCommunicationError|RateLimitReachedException
+     */
+    private function _sendRequest(RequestInterface $request): ResponseInterface
+    {
         // Do not use the accessor, as it would instantiate an empty one.
         // We really do want to check if we know our limits already.
-        if (null !== $this->rateLimits) {
-            if ($this->rateLimits->isRateLimited()) {
+        if (null !== $this->configuration->limits) {
+            if ($this->configuration->limits->isRateLimited()) {
 
-                $limitEvent = new RateLimitReached($this, $this->rateLimits);
+                $limitEvent = new RateLimitReached($this, $this->configuration->limits);
 
                 $this->manager->dispatcher->dispatch($limitEvent);
 
@@ -519,7 +640,6 @@ abstract class ExactEnvironment /*permits Exact*/
         }
 
         $this->updateRateLimits($response);
-
         return $response;
     }
 
@@ -545,7 +665,8 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function updateRateLimits(ResponseInterface $response): void
     {
-        $this->rateLimits ??= RateLimits::createFromResponse($this, $response);
+        $this->configuration->limits ??= RateLimits::createFromDefaults();
+        $this->configuration->limits->updateFromResponse($response);
     }
 
     final protected function decodeResponseToJson(
@@ -585,7 +706,8 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final protected function getDataFromRawData(
         array $content
-    ) : array {
+    ): array
+    {
         if (isset($content['error'])) {
             if (isset($content['error_description'])) {
                 throw new ExactCommunicationError(
@@ -663,9 +785,9 @@ abstract class ExactEnvironment /*permits Exact*/
 
     final public function saveConfiguration(): bool
     {
-        $e = new CredentialsChange(
+        $e = new ConfigurationChange(
             $this,
-            $this->configuration->toOrganizationData()
+            $this->configuration->toOrganizationData(),
         );
 
         $this->manager->dispatcher->dispatch($e);

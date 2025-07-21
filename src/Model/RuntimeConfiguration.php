@@ -17,13 +17,6 @@ class RuntimeConfiguration
     public const int TOKEN_EXPIRE_SLUSH = 15;
 
     /**
-     * @param ExactAppConfigurationInterface $exactAppConfiguration
-     * @param int|null $division
-     * @param string|null $organizationAuthorizationCode
-     * @param string|null $organizationAccessToken
-     * @param \DateTimeInterface|null $organizationAccessTokenExpires
-     * @param string|null $organizationRefreshToken
-     *
      * @internal It is not recommended to initialize this yourself.
      *           Please use ExactConnectionManager->createRuntimeConfiguration
      */
@@ -39,6 +32,7 @@ class RuntimeConfiguration
         public ?\DateTimeInterface                     $organizationAccessTokenExpires = null,
         #[\SensitiveParameter]
         public ?string                                 $organizationRefreshToken = null,
+        public ?RateLimits $limits
     )
     {
         if (str_contains($this->organizationAuthorizationCode, '&')) {
@@ -66,6 +60,7 @@ class RuntimeConfiguration
             $this->organizationAccessToken,
             $this->organizationAccessTokenExpires,
             $this->organizationRefreshToken,
+            (clone $this->limits)
         );
     }
 

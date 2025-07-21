@@ -25,14 +25,14 @@ class RuntimeConfiguration
         private readonly ExactAppConfigurationInterface $exactAppConfiguration,
         public ?int                                     $division = null,
         #[\SensitiveParameter]
-        public ?string                                 $organizationAuthorizationCode = null,
+        public ?string             $organizationAuthorizationCode = null,
         #[\SensitiveParameter]
-        public ?string                                 $organizationAccessToken = null,
+        public ?string             $organizationAccessToken = null,
         #[\SensitiveParameter]
-        public ?\DateTimeInterface                     $organizationAccessTokenExpires = null,
+        public ?\DateTimeInterface $organizationAccessTokenExpires = null,
         #[\SensitiveParameter]
-        public ?string                                 $organizationRefreshToken = null,
-        public ?RateLimits $limits
+        public ?string             $organizationRefreshToken = null,
+        public ?RateLimits         $limits = null
     )
     {
         if (str_contains($this->organizationAuthorizationCode, '&')) {
@@ -52,7 +52,7 @@ class RuntimeConfiguration
      * Creates a readonly copy that is 'safe' to use in events.
      * @return ExactOrganizationalConfigurationalData
      */
-    public function toOrganizationData() : ExactOrganizationalConfigurationalData
+    public function toOrganizationData(): ExactOrganizationalConfigurationalData
     {
         return new ExactOrganizationalConfigurationalData(
             $this->division,
@@ -126,7 +126,8 @@ class RuntimeConfiguration
      * Does not check validity, only that it actually exists.
      * @return bool
      */
-    public function hasAccessToken(): bool {
+    public function hasAccessToken(): bool
+    {
         return !empty($this->organizationAccessToken);
     }
 

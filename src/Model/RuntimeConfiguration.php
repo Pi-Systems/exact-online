@@ -60,7 +60,7 @@ class RuntimeConfiguration
             $this->organizationAccessToken,
             $this->organizationAccessTokenExpires,
             $this->organizationRefreshToken,
-            (clone $this->limits)
+            $this->limits ? (clone $this->limits) : null
         );
     }
 

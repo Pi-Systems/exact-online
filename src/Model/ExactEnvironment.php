@@ -466,7 +466,6 @@ abstract class ExactEnvironment /*permits Exact*/
         $this->setOrganizationRefreshToken($refresh);
 
         $this->saveConfiguration();
-
     }
 
     final protected function createRequest(
@@ -555,7 +554,7 @@ abstract class ExactEnvironment /*permits Exact*/
          * Warning: Every attempt is 1 minute is 1 minute
          * Warning: Only numbers above 0 make sense, 0 is treated as 1.
          */
-        int                                 $limit = INF,
+        int $limit = 5000,
 
     ): \Closure
     {
@@ -566,7 +565,7 @@ abstract class ExactEnvironment /*permits Exact*/
             $attempts = 0;
             do {
                 try {
-                    $response = $callback();
+                    $response = $callback() ?? null; // Linters sometimes...
                 } catch (RateLimitReachedException $exception) {
                     // Do not catch if it's the daily limit.
                     $limits = $exception->event->dailyLimits;
@@ -608,9 +607,9 @@ abstract class ExactEnvironment /*permits Exact*/
                         }
                     }
                 }
-            } while ($attempts++ < $limit);
+            } while (null === $response && $attempts++ < $limit);
 
-            if ($attempts >= $limit) {
+            if ($attempts > $limit) {
                 throw new ExactCommunicationError(
                     $exact,
                     "Exceeded configured (await) rate limit of {$limit} attempts."
@@ -646,7 +645,7 @@ abstract class ExactEnvironment /*permits Exact*/
          * Warning: Every attempt is 1 minute is 1 minute
          * Warning: Only numbers above 0 make sense, 0 is treated as 1.
          */
-        int $limit = 5000,
+        int $limit = 1,
     ): ResponseInterface
     {
         return self::createRateLimitGuardedCallback(
@@ -689,22 +688,21 @@ abstract class ExactEnvironment /*permits Exact*/
      */
     private function _sendRequest(RequestInterface $request): ResponseInterface
     {
+        $limits = $this->configuration->limits ??= RateLimits::createFromDefaults();
         // Do not use the accessor, as it would instantiate an empty one.
         // We really do want to check if we know our limits already.
-        if (null !== $this->configuration->limits) {
-            if ($this->configuration->limits->isRateLimited()) {
+        if ($this->configuration->limits->isRateLimited()) {
 
-                $limitEvent =
-                    new RateLimitReached($this, $this->configuration->limits);
+            $limitEvent =
+                new RateLimitReached($this, $this->configuration->limits);
 
-                $this->manager->dispatcher->dispatch($limitEvent);
+            $this->manager->dispatcher->dispatch($limitEvent);
 
-                // If the event is stopped, we stop caring.
-                // User dealt with it, so...
-                if (!$limitEvent->isPropagationStopped()) {
-                    // Not stopped, it was allowed to cascade, throw as exception
-                    throw new RateLimitReachedException($this, $limitEvent);
-                }
+            // If the event is stopped, we stop caring.
+            // User dealt with it, so...
+            if (!$limitEvent->isPropagationStopped()) {
+                // Not stopped, it was allowed to cascade, throw as exception
+                throw new RateLimitReachedException($this, $limitEvent);
             }
         }
 

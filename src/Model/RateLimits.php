@@ -21,27 +21,27 @@ class RateLimits implements \JsonSerializable
     {
         $this->lastRefresh = new \DateTimeImmutable();
 
-        if (is_int($dailyResetTime)) {
-            $this->dailyResetTime = \DateTimeImmutable::createFromTimestamp($dailyResetTime);
-        }
+        $this->dailyResetTime =
+            is_int($dailyResetTime)
+                ? \DateTimeImmutable::createFromTimestamp($dailyResetTime)
+                : $dailyResetTime;
 
-        if (is_int($minuteResetTime)) {
-            $this->minuteResetTime = \DateTimeImmutable::createFromTimestamp($minuteResetTime);
-        }
+        $this->minuteResetTime =
+            is_int($minuteResetTime)
+                ? \DateTimeImmutable::createFromTimestamp($minuteResetTime)
+                : $minuteResetTime;
     }
 
     public static function createFromDefaults(
         int $dailyRateLimit = 5000,
         int $minuteRateLimit = 60,
-        int $dailyResetRate = 1000,
     ): RateLimits
     {
         return new self(
             $dailyRateLimit,
             $dailyRateLimit,
-            $dailyResetRate,
             $minuteRateLimit,
-            $minuteRateLimit,
+            $minuteRateLimit
         );
     }
 
@@ -50,10 +50,10 @@ class RateLimits implements \JsonSerializable
         return [
             'dailyRateLimit' => $this->dailyRateLimit,
             'dailyRemaining' => $this->dailyRemaining,
-            'dailyResetTime' => $this->dailyResetTime->getTimestamp(),
+            'dailyResetTime' => $this->dailyResetTime,
             'minuteRateLimit' => $this->minuteRateLimit,
             'minuteRemaining' => $this->minuteRemaining,
-            'minuteResetTime' => $this->minuteResetTime->getTimestamp(),
+            'minuteResetTime' => $this->minuteResetTime,
         ];
     }
 
@@ -92,7 +92,8 @@ class RateLimits implements \JsonSerializable
                 $property === 'dailyResetTime' ||
                 $property === 'minuteResetTime'
             ) {
-                $this->{$property} = \DateTimeImmutable::createFromTimestamp((int)$val);
+                $this->{$property} =
+                    \DateTimeImmutable::createFromTimestamp((int)$val);
             } else {
                 $this->{$property} = (int)$val;
             }
@@ -103,10 +104,12 @@ class RateLimits implements \JsonSerializable
 
     protected function doRefreshCalculations(): void
     {
-        if ($this->lastRefresh->getTimestamp() > $this->dailyResetTime->getTimestamp()) {
+        if ($this->lastRefresh->getTimestamp() >
+            $this->dailyResetTime->getTimestamp()) {
             // Reset daily
             $this->dailyRemaining = $this->dailyRateLimit;
-            $this->dailyResetTime = $this->dailyResetTime->add(new \DateInterval('P1D'));
+            $this->dailyResetTime =
+                $this->dailyResetTime->add(new \DateInterval('P1D'));
         }
 
         $now = new \DateTimeImmutable();
@@ -134,12 +137,14 @@ class RateLimits implements \JsonSerializable
     public function getDailyRemaining(): int
     {
         $this->doRefreshCalculations();
+
         return $this->dailyRemaining;
     }
 
     public function getRemainingMinutely(): int
     {
         $this->doRefreshCalculations();
+
         return $this->minuteRemaining;
     }
 

@@ -35,13 +35,13 @@ class RuntimeConfiguration
         public ?RateLimits         $limits = null
     )
     {
-        if (str_contains($this->organizationAuthorizationCode, '&')) {
+        if (str_contains($this->organizationAuthorizationCode ?? '', '&')) {
             throw new \RuntimeException(
                 'Error between chair and monitor, developer did not extract the code from the return url properly. (Likely forgot redirect_uri returns with &state= at the end)'
             );
         }
 
-        if (str_contains($this->organizationAuthorizationCode, '%')) {
+        if (str_contains($this->organizationAuthorizationCode ?? '', '%')) {
             throw new \RuntimeException(
                 'Error between chair and monitor, developer did not extract the code from the return url properly. (There are still encoded elements present in the string, url_decode these.)'
             );

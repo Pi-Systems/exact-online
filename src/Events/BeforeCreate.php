@@ -13,7 +13,7 @@ class BeforeCreate extends Event
 {
 
     public function __construct(
-        public ?int $administration = null,
+        public ?int $administration,
         public CacheItemPoolInterface    $cache,
         public RequestFactoryInterface   $requestFactory,
         public UriFactoryInterface      $uriFactory,

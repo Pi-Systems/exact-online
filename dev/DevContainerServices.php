@@ -265,7 +265,7 @@ return [
                 accessTokenExpiry: $data['organizationAccessTokenExpires'],
                 refreshToken: $data['organizationRefreshToken'],
                 division: $data['division'],
-                limits: RateLimits::createFromArray($data['limits'])
+                limits: $data['limits'] ? RateLimits::createFromArray($data['limits']) : RateLimits::createFromDefaults()
             );
 
             return $manager->create(

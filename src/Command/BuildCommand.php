@@ -4,7 +4,8 @@ namespace PISystems\ExactOnline\Command;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use PISystems\ExactOnline\Builder\Compiler;
+use PISystems\ExactOnline\Builder\Compiler\Compiler;
+use PISystems\ExactOnline\Builder\Compiler\RemoteDocumentLoader;
 use PISystems\ExactOnline\Polyfill\SimpleFileCache;
 use PISystems\ExactOnline\Util\AttributeOverrides;
 use Psr\Http\Client\ClientExceptionInterface;
@@ -26,7 +27,6 @@ class BuildCommand extends Command
     protected function configure(): void
     {
         $this->addOption('filter', 'f', InputOption::VALUE_REQUIRED, 'Only run build for this filter.');
-        $this->addOption('ttl', null, InputOption::VALUE_REQUIRED, 'How long for the ttl?', self::DEFAULT_TTL);
         $this->addOption('online', 'o', InputOption::VALUE_NONE, 'Use online mode');
         $this->addOption('methodTemplate', null, InputOption::VALUE_REQUIRED, 'Use this template instead of the default one.');
         $this->addOption('dataTemplate', null, InputOption::VALUE_REQUIRED, 'Use this template instead of the default one.');
@@ -36,15 +36,12 @@ class BuildCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $ttl = (int)$input->getOption('ttl');
         $cache = new SimpleFileCache(__DIR__.'/../Resources/ExactDocumentationCache', defaultTtl: self::DEFAULT_TTL);
         $cache->ignoreTimeout = true;
         $reader = new Compiler(
             $cache,
-            new HttpFactory(),
-            new Client(),
             $this->logger,
-            $ttl,
+            new RemoteDocumentLoader($cache, new HttpFactory(), $this->logger, new Client()),
             attributeOverrides: new AttributeOverrides()
         );
 

@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Util;
 
-use PISystems\ExactOnline\Builder\Compiler;
+use PISystems\ExactOnline\Builder\Compiler\Compiler;
 use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 

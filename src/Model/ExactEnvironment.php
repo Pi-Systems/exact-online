@@ -688,7 +688,7 @@ abstract class ExactEnvironment /*permits Exact*/
      */
     private function _sendRequest(RequestInterface $request): ResponseInterface
     {
-        $limits = $this->configuration->limits ??= RateLimits::createFromDefaults();
+        $this->configuration->limits ??= $this->configuration->limits ??= RateLimits::createFromDefaults();
         // Do not use the accessor, as it would instantiate an empty one.
         // We really do want to check if we know our limits already.
         if ($this->configuration->limits->isRateLimited()) {

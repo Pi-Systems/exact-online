@@ -6,14 +6,6 @@ use PISystems\ExactOnline\Builder\ExactAttribute;
 
 abstract class EdmDataStructure extends ExactAttribute
 {
-    public readonly array $arguments;
-
-    public function __construct()
-    {
-        $this->arguments = func_get_args();
-    }
-
-
     /**
      * Supply the full name: Edm.<type>
      * Ensure capitalization is correct

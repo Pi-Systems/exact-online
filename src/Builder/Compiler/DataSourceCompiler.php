@@ -2,7 +2,9 @@
 
 namespace PISystems\ExactOnline\Builder\Compiler;
 
+use PISystems\ExactOnline\Builder\Compiler\Interfaces\DataSourceWriterInterface;
 use PISystems\ExactOnline\Builder\Compiler\Interfaces\RemoteDocumentLoaderInterface;
+use PISystems\ExactOnline\Builder\Edm\Collection;
 use PISystems\ExactOnline\Builder\EdmRegistry;
 use PISystems\ExactOnline\Builder\Endpoint;
 use PISystems\ExactOnline\Builder\ExactWeb;
@@ -13,6 +15,7 @@ use PISystems\ExactOnline\Builder\Required;
 use PISystems\ExactOnline\Enum\HttpMethod;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 use PISystems\ExactOnline\Model\ExactAttributeOverridesInterface;
+use PISystems\ExactOnline\Util\SanityCheck;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Client\ClientExceptionInterface;
 use Psr\Log\LoggerInterface;
@@ -22,40 +25,50 @@ use Psr\Log\LoggerInterface;
  * This is currently only really relevant during dev.
  * May also consider using an engine to generate content instead of search_replace in a '''template''' file.
  */
-class Compiler
+class DataSourceCompiler
 {
     const string EXACT_META_CACHE = __DIR__ . '/../../Entity/ExactMeta.json';
 
     const int PAGE_SIZE_DEFAULT = 60;
     const int PAGE_SIZE_SYNC_AND_BULK = 1000;
 
-
     public const string HOST = 'start.exactonline.nl';
     public const string RESOURCE_ENDPOINT = 'https://' . self::HOST . '/docs/';
 
-
-    private ?string $dataTemplateContent = null;
-    private ?string $methodTemplateContent = null;
-    private array $entityParseQueue = [];
     private array $departments = [];
     private array $globalLookup = [];
 
-
     public function __construct(
-        protected readonly CacheItemPoolInterface        $cache,
-        protected readonly LoggerInterface               $logger,
-        protected readonly RemoteDocumentLoaderInterface $documentLoader,
+        protected readonly CacheItemPoolInterface         $cache,
+        protected readonly LoggerInterface                $logger,
+        protected readonly RemoteDocumentLoaderInterface  $documentLoader,
+        protected readonly DataSourceWriterInterface      $writer,
         // The contents of this will not expire that quickly.
-        public readonly ?ExactAttributeOverridesInterface $attributeOverrides = null
+        public readonly ?ExactAttributeOverridesInterface $attributeOverrides = null,
+        public string                                     $targetDirectory = __DIR__ . '/../../Entity' {
+            set {
+                $this->targetDirectory = str_ends_with($value, '/') ? $value : $value . '/';
+                if (!is_writable($this->targetDirectory)) {
+                    throw new \RuntimeException("Cannot write to destination folder.");
+                }
+            }
+        },
     )
     {
-
+        SanityCheck::checkEnv(static::class);
     }
-
 
     /**
      * @throws ClientExceptionInterface
      * @var null|string $service If supplied, it is used to filter which pages to build. (Regex, filter is based on path)
+     *
+     * This method could use some tlc.
+     * However, unless the source changes, I don't really see a point in changing this.
+     * This is run maybe once in a custom project, maybe during a composer install script or whenever.
+     * This code can be slow(ish), it can be a bit clunky.
+     * Considering it is not responsible for communication and no production code is part of this, it should be fine.
+     *
+     * AKA: This stuff MAKES the production code, it is not production code itself!
      */
     public function build(?string $service = null): int
     {
@@ -74,6 +87,7 @@ class Compiler
         $items = $xpath->query('//html/body/form/table/tr[position()>1]');
 
         $this->logger->info("We found {$items->length} items");
+        $fileMetas = [];
         foreach ($items as $item) {
             $cells = $item->getElementsByTagName('td');
 
@@ -105,18 +119,26 @@ class Compiler
             if ($service && !preg_match($service, $department)) {
                 continue;
             }
-            var_dump($this->generateClassMeta($department, $endpoint, $resource, $path, $methods, $scope));
+            $this->logger->debug("Building {$endpoint}\n");
+            $fileMetas[] = $this->generateClassMeta($department, $endpoint, $resource, $path, $methods, $scope);
         }
 
-        // Write it all
+        $metas = [];
+        foreach ($fileMetas as $meta) {
+            if (!$meta) {
+                continue; // Skip empty metas, something went wrong there.
+            }
 
-        $metas = $this->buildMeta();
+            $this->writer->write($meta);
+            $metas[$meta->fqcn] = DataSourceMeta::createFromClass($meta->fqcn)->toArray();
+        }
+
         file_put_contents(self::EXACT_META_CACHE, json_encode($metas, JSON_PRETTY_PRINT));
         $this->cache->commit();
         return $count;
     }
 
-    private function generateClassMeta(
+    protected function generateClassMeta(
         string $department,
         string  $endpoint,
         ?string $resource,
@@ -126,13 +148,12 @@ class Compiler
     ): ?BuildFileMeta
     {
         if (!str_starts_with($path, '/api/')) {
-            return null;
+            $this->logger->warning("Path {$path} does not start with /api/.");
         }
 
         if (!$resource) {
-            return null;
+            throw new \RuntimeException("Resource for {$endpoint} not found.");
         }
-        static $edmMap = EdmRegistry::map();
 
         // Dealing with a data endpoint
         $matches = [];
@@ -140,6 +161,7 @@ class Compiler
         $link = $matches['endpoint'] ?? null;
 
         if (!$link) {
+            $this->logger->warning("Endpoint for {$path} not found.");
             // @me? Check this later
             return null;
         }
@@ -175,12 +197,12 @@ class Compiler
             $attributes = $this->attributeOverrides->override($class, $attributes);
         }
 
-
         $meta = new BuildFileMeta(
             $namespace,
             trim($department),
             $attributes,
             $namespace . '\\' . $class,
+            $class,
             $endpoint,
             null,
             $resource,
@@ -190,12 +212,26 @@ class Compiler
 
         );
 
+        [$items, $columns] = $this->extractClassMeta($meta);
+
+        /** @var \DOMElement $item */
+        foreach ($items as $item) {
+            $this->extractPropertyMeta($meta, $item, $columns);
+        }
+
+        $this->walkPropertyAttributes($meta);
+
+        return $meta;
+    }
+
+    protected function extractClassMeta(BuildFileMeta $meta): array
+    {
         // Collect everything first
 
         $page = $this->documentLoader->getPage($meta->resource);
         if (!$page) {
             $this->logger->debug("Failed to retrieve {$meta->resource}.");
-            return null;
+            throw new \RuntimeException("Failed to retrieve {$meta->resource}.");
         }
 
         $xpath = new \DOMXPath($page);
@@ -245,148 +281,159 @@ class Compiler
             }
         }
 
-        $documentGlobalName = $department . $endpoint;
+        $documentGlobalName = $meta->department . $meta->endpoint;
 
         $this->globalLookup[$documentGlobalName] ??= [
-            'department' => $department,
-            'endpoint' => $endpoint,
-            'class' => $class,
+            'department' => $meta->department,
+            'endpoint' => $meta->endpoint,
+            'class' => $meta->class,
             'properties' => [],
             'endpointDescriptions' => $endpointDescriptions
         ];
 
 
         $items = $xpath->query('tr[position()>1]', $table);
+        return [$items, $columns];
+    }
 
-        /** @var \DOMElement $item */
-        foreach ($items as $item) {
-            $classesString = trim($item->getAttribute('class'));
-            $classes = explode(' ', $classesString);
-            $cells = $item->getElementsByTagName('td');
+    protected function extractPropertyMeta(BuildFileMeta $meta, \DOMElement $item, array $columns): void
+    {
+        static $edmMap = EdmRegistry::map();
 
-            $required = strtolower(trim($cells[$columns['mandatory']]->textContent)) !== 'false';
-            $name = trim($cells[$columns['name']]->textContent);
+        $xpath = new \DOMXPath($item->ownerDocument);
+        $classesString = trim($item->getAttribute('class'));
+        $classes = explode(' ', $classesString);
+        $cells = $item->getElementsByTagName('td');
 
-            $attributes = [];
-            $typeAnnotation = trim($cells[$columns['type']]->textContent);
-            // Slightly more tricky than I initially thought.
-            // The document is slightly broken at the time of writing.
-            // If there is an anchor, it can be either an EDM structure, or a navigation item.
-            // If there is no anchor, it is a malformed navigation item, however the name can still be looked up.
-            // If there is an anchor, and it does not start with Edm. then we have a minor issue.
-            // https://start.exactonline.nl/docs/HlpRestAPIResourcesDetails.aspx?name=ManufacturingShopOrderMaterialPlanDetails # Calculator as an example
-            // This has Exact.Web.Api.Models.Manufacturing.MaterialPlanCalculator as a linked type (Which links to... oData, which it is clearly not, it's a Guid ffs)
-            //
-            // We 'solve' this for now using 3 checks.
-            // 1) Edm.
-            // 2) Exact.Web,
-            // 3) Class
-            [$type] = null;
+        $required = strtolower(trim($cells[$columns['mandatory']]->textContent)) !== 'false';
+        $name = trim($cells[$columns['name']]->textContent);
 
-            if (str_starts_with($typeAnnotation, 'Edm.')) {
-                $edm = $typeAnnotation;
-                [$type, $local, $typeDescription] = $edmMap[$edm] ?? [null, 'mixed', ''];
-            } elseif (str_contains($typeAnnotation, 'Exact.Web.')) {
-                // We have no damn clue, probably a string.
-                $local = 'mixed';
-                $attributes['exact_web'] = new ExactWeb($typeAnnotation);
-                $typeDescription = "Unknown ExactWeb type {$typeAnnotation}";
-            } else {
-                $ns = substr($meta->class, strrpos($meta->class, '\\') + 1);
-                $ts = $ns . '\\' . $typeAnnotation;
-                $attributes['collection'] = $typeAnnotation;
-                $typeDescription = "A collection of $ts";
-                $local = '?array';
-            }
+        $attributes = [];
+        $typeAnnotation = trim($cells[$columns['type']]->textContent);
 
-            $input = $xpath->query('td/input', $item)->item($columns['checkmark']);
-            $description = trim($cells[$columns['description']]->textContent);
+        // Slightly more tricky than I initially thought.
+        // The document is slightly broken at the time of writing.
+        // If there is an anchor, it can be either an EDM structure, or a navigation item.
+        // If there is no anchor, it is a malformed navigation item, however the name can still be looked up.
+        // If there is an anchor, and it does not start with Edm. then we have a minor issue.
+        // https://start.exactonline.nl/docs/HlpRestAPIResourcesDetails.aspx?name=ManufacturingShopOrderMaterialPlanDetails # Calculator as an example
+        // This has Exact.Web.Api.Models.Manufacturing.MaterialPlanCalculator as a linked type (Which links to... oData, which it is clearly not, it's a Guid ffs)
+        //
+        // We 'solve' this for now using 3 checks.
+        // 1) Edm.
+        // 2) Exact.Web,
+        // 3) Class
+        $type = null;
 
-            if (!empty($description)) {
-                $lines = explode(PHP_EOL, $description);
-                $description = trim(implode('', array_map('trim', $lines))) . PHP_EOL;
-            }
-
-            $isPrimaryKey = $input?->attributes->getNamedItem('data-key')?->nodeValue === 'True';
-
-            if (!empty($type)) {
-                // Required is based on the method used, so just treat everything as optional until validation.
-                if ($local !== 'mixed') {
-                    $local = 'null|' . $local;
-                }
-
-                $attributes['edm'] = new $type();
-            }
-
-            if ($isPrimaryKey) {
-                $required = true;
-                $attributes['key'] = new Key();
-            }
-
-            if ($required) {
-                $attributes['required'] = new Required();
-            }
-
-            // Availability calculation is a joke.
-            // It's all based on the input fields.
-            // Where in the browser you would have js to ... stupidly ... calculate the values into silly classes.
-            // We don't have that luxury and have to pry the values from annoying attributes.
-            $methods = [HttpMethod::GET]; // Get is a given
-//
-            $showGet = in_array('showget', $classes);
-
-            if (
-                !$showGet &&
-                !in_array('hidepost', $methods, true) &&
-                in_array('POST', $meta->methods, true)
-            ) {
-                $methods[] = HttpMethod::POST;
-            }
-
-            if (
-                !$showGet &&
-                !in_array('hideput', $methods, true) &&
-                in_array('PUT', $meta->methods, true)
-            ) {
-                $methods[] = HttpMethod::PUT;
-            }
-
-            if (
-                $isPrimaryKey &&
-                in_array('DELETE', $meta->methods, true)
-            ) {
-                $methods[] = HttpMethod::DELETE;
-            }
-
-            foreach ($methods as $method) {
-                $attributes['method::' . $method->value] = $method;
-            }
-
-            $prop = $meta->class . '::$' . $name;
-            if ($this->attributeOverrides->hasOverrides($prop)) {
-                $attributes = $this->attributeOverrides->override($prop, $attributes);
-            }
-
-            $meta->properties[$name] = [
-                'name' => $name,
-                'local' => $local,
-                'description' => $description,
-                'typeDescription' => $typeDescription,
-                'attributes' => $attributes,
-            ];
+        if (str_starts_with($typeAnnotation, 'Edm.')) {
+            $edm = $typeAnnotation;
+            [$type, $local, $typeDescription] = $edmMap[$edm] ?? [null, 'mixed', ''];
+        } elseif (str_contains($typeAnnotation, 'Exact.Web.')) {
+            // We have no damn clue, probably a string.
+            $local = 'mixed';
+            $attributes['exact_web'] = new ExactWeb($typeAnnotation);
+            $typeDescription = "Unknown ExactWeb type {$typeAnnotation}";
+        } else {
+            $ns = substr($meta->fqcn, strrpos($meta->fqcn, '\\') + 1);
+            $ts = $ns . '\\' . $typeAnnotation;
+            $attributes['collection'] = $typeAnnotation;
+            $typeDescription = "A collection of $ts";
+            $local = '?array';
         }
 
+        $input = $xpath->query('td/input', $item)->item($columns['checkmark']);
+        $description = trim($cells[$columns['description']]->textContent);
 
-        foreach ($meta->properties as $name => &$property) {
+        if (!empty($description)) {
+            $lines = explode(PHP_EOL, $description);
+            $description = trim(implode('', array_map('trim', $lines))) . PHP_EOL;
+        }
 
-            if (array_key_exists('collection', $property['attributes'])) {
-                $type = $property['attributes']['collection'];
+        $isPrimaryKey = $input?->attributes->getNamedItem('data-key')?->nodeValue === 'True';
+
+        if (!empty($type)) {
+            // Required is based on the method used, so just treat everything as optional until validation.
+            if ($local !== 'mixed') {
+                $local = 'null|' . $local;
+            }
+
+            $attributes['edm'] = new $type();
+        }
+
+        if ($isPrimaryKey) {
+            $required = true;
+            $attributes['key'] = new Key();
+        }
+
+        if ($required) {
+            $attributes['required'] = new Required();
+        }
+
+        // Availability calculation is a joke.
+        // It's all based on the input fields.
+        // Where in the browser you would have js to ... stupidly ... calculate the values into silly classes.
+        // We don't have that luxury and have to pry the values from annoying attributes.
+        $methods = [HttpMethod::GET]; // Get is a given
+//
+        $showGet = in_array('showget', $classes);
+
+        if (
+            !$showGet &&
+            !in_array('hidepost', $methods, true) &&
+            in_array('POST', $methods, true)
+        ) {
+            $methods[] = HttpMethod::POST;
+        }
+
+        if (
+            !$showGet &&
+            !in_array('hideput', $methods, true) &&
+            in_array('PUT', $methods, true)
+        ) {
+            $methods[] = HttpMethod::PUT;
+        }
+
+        if (
+            $isPrimaryKey &&
+            in_array('DELETE', $methods, true)
+        ) {
+            $methods[] = HttpMethod::DELETE;
+        }
+
+        foreach ($methods as $method) {
+            $attributes['method::' . $method->value] = new Method($method);
+        }
+
+        $prop = $meta->fqcn . '::$' . $name;
+        if ($this->attributeOverrides->hasOverrides($prop)) {
+            $attributes = $this->attributeOverrides->override($prop, $attributes);
+        }
+
+        $meta->properties[$name] = new BuildPropertyMeta(
+            $meta,
+            $name,
+            $local,
+            $description,
+            $typeDescription,
+            attributes: $attributes
+        );
+    }
+
+    protected function walkPropertyAttributes(BuildFileMeta $meta): void
+    {
+        /**
+         * @var BuildPropertyMeta $property
+         */
+        foreach ($meta->properties as $name => $property) {
+
+            if (array_key_exists('collection', $property->attributes)) {
+                $type = $property->attributes['collection'];
                 $this->logger->debug('Collection requested, attempting to resolve ' . $type);
                 $this->logger->debug('');
                 // Try to find the class using a few tricks
                 $fullClass =
                     $this->globalLookup[$type]['class'] // Find it in global-scope (This will likely fail).
-                    ?? $this->globalLookup[$value['department'] . $type]['class'] // Find it in the local department scope (Still likely to fail)
+                    ?? $this->globalLookup[$meta->department . $type]['class'] // Find it in the local department scope (Still likely to fail)
                     ?? null;
 
 
@@ -401,12 +448,12 @@ class Compiler
                 // Still not found? Hail marry attempt.
                 if (!$fullClass) {
                     // One more attempt, using CamelCased Namespace of the class... **sigh**
-                    $ns = str_replace("PISystems\\ExactOnline\\Model\\Exact\\", '', substr($meta->class, strrpos($meta->class, '\\') + 1));
+                    $ns = str_replace("PISystems\\ExactOnline\\Model\\Exact\\", '', substr($meta->fqcn, strrpos($meta->fqcn, '\\') + 1));
                     $ns = explode('\\', $ns);
                     $ns = array_map('ucfirst', $ns);
                     $ns = implode('\\', $ns);
                     $test = $ns . $type;
-                    $fullClass = $toWrite[$test]['class'] ?? null;
+                    $fullClass = $this->globalLookup[$test]['class'] ?? null;
                 }
 
                 // We give up, just couple it to the basic DataSource and let the user deal with it.
@@ -416,36 +463,11 @@ class Compiler
                     $fullClass = 'DataSource';
                 }
 
-                $property['attributes']['collection'] = 'EDM\\Collection(' . $fullClass . '::class, \'' . $type . '\')';
+                $property->attributes['collection'] = new Collection($fullClass, $type);
             }
 
-            $property += [
-                'localType' => $name,
-                'description' => $property['local'],
-                'typeDescription' => $property['description'],
-                'attributes' => $property['typeDescription'],
-                'default' => ' = null'
-            ];
+            $property->localType = $name;
+            $property->default = 'null';
         }
-
-        return $meta;
-    }
-
-    /**
-     * Technically not needed to do, as the ExactEnvironment::getDataSourceMetaData does the same.
-     * However. this does catch any real issues with all the above code if this goes wrong.
-     * And speeds up initial runtime drastically.
-     */
-
-    protected function buildMeta(): array
-    {
-        $this->logger->info('Constructing meta data.');
-
-        $metas = [];
-        foreach ($this->entityParseQueue as [, , , , $class]) {
-            $meta = DataSourceMeta::createFromClass($class);
-            $metas[$class] = $meta->toArray();
-        }
-        return $metas;
     }
 }

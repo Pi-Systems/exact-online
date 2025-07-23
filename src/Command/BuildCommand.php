@@ -4,7 +4,8 @@ namespace PISystems\ExactOnline\Command;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Psr7\HttpFactory;
-use PISystems\ExactOnline\Builder\Compiler\Compiler;
+use PISystems\ExactOnline\Builder\Compiler\DataSourceCompiler;
+use PISystems\ExactOnline\Builder\Compiler\DataSourceWriter;
 use PISystems\ExactOnline\Builder\Compiler\RemoteDocumentLoader;
 use PISystems\ExactOnline\Polyfill\SimpleFileCache;
 use PISystems\ExactOnline\Util\AttributeOverrides;
@@ -38,10 +39,11 @@ class BuildCommand extends Command
     {
         $cache = new SimpleFileCache(__DIR__.'/../Resources/ExactDocumentationCache', defaultTtl: self::DEFAULT_TTL);
         $cache->ignoreTimeout = true;
-        $reader = new Compiler(
+        $reader = new DataSourceCompiler(
             $cache,
             $this->logger,
-            new RemoteDocumentLoader($cache, new HttpFactory(), $this->logger, new Client()),
+            $loader = new RemoteDocumentLoader($cache, new HttpFactory(), $this->logger, new Client()),
+            $writer = new DataSourceWriter(),
             attributeOverrides: new AttributeOverrides()
         );
 
@@ -49,17 +51,17 @@ class BuildCommand extends Command
             if (!is_file($dataTemplate) || !is_readable($dataTemplate)) {
                 throw new \InvalidArgumentException("The template file '{$dataTemplate}' does not exist or is not readable.");
             }
-            $reader->methodTemplate = $dataTemplate;
+            $writer->methodTemplate = $dataTemplate;
         }
 
         if ($dataTemplate = $input->getOption('dataTemplate')) {
             if (!is_file($dataTemplate) || !is_readable($dataTemplate)) {
                 throw new \InvalidArgumentException("The template file '{$dataTemplate}' does not exist or is not readable.");
             }
-            $reader->dataTemplate = $dataTemplate;
+            $writer->dataTemplate = $dataTemplate;
         }
 
-        $reader->localOnly = !$input->getOption('online');
+        $loader->localOnly = !$input->getOption('online');
 
         try {
             $reader->build($input->getOption('filter'));

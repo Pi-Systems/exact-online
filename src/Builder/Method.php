@@ -12,6 +12,6 @@ class Method extends ExactAttribute
         public bool $required = false
     )
     {
-
+        parent::__construct(...func_get_args());
     }
 }

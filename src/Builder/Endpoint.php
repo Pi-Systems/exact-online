@@ -11,6 +11,6 @@ class Endpoint extends ExactAttribute
         public string $globalName
     )
     {
-
+        parent::__construct(...func_get_args());
     }
 }

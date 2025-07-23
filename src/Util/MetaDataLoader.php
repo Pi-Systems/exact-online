@@ -2,7 +2,7 @@
 
 namespace PISystems\ExactOnline\Util;
 
-use PISystems\ExactOnline\Builder\Compiler\Compiler;
+use PISystems\ExactOnline\Builder\Compiler\DataSourceCompiler;
 use PISystems\ExactOnline\Model\DataSource;
 use PISystems\ExactOnline\Model\DataSourceMeta;
 
@@ -22,7 +22,7 @@ class MetaDataLoader
             $source = $source::class;
         }
 
-        self::$metaCache ??= json_decode(file_get_contents(Compiler::EXACT_META_CACHE), true);
+        self::$metaCache ??= json_decode(file_get_contents(DataSourceCompiler::EXACT_META_CACHE), true);
 
         if (self::$metaCache && array_key_exists($source, self::$metaCache)) {
             $data = self::$metaCache[$source];

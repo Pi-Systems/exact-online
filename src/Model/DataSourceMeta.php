@@ -72,13 +72,15 @@ final class DataSourceMeta
                 }
             }
 
-            if (null !== $property['type']) {
-                $args = $property['type']['arguments'] ?? [];
-                $property['type'] = new $property['type']['class'](... $args);
+            if (null === $property['type']) {
+                throw new \RuntimeException("The array you passed in for property {$k}['type'] is not valid. (class is null)");
+            }
 
-                if (!$property['type'] instanceof EdmDataStructure) {
-                    throw new \InvalidArgumentException("The array you passed in for property {$k}['type'] is not valid. (class is not a EdmDataStructure)");
-                }
+            $args = $property['type']['arguments'] ?? [];
+            $property['type'] = new $property['type']['class'](... $args);
+
+            if (!$property['type'] instanceof EdmDataStructure) {
+                throw new \InvalidArgumentException("The array you passed in for property {$k}['type'] is not valid. (class is not a EdmDataStructure)");
             }
 
         }

@@ -9,6 +9,6 @@ class PageSize extends ExactAttribute
         public int $value = 60
     )
     {
-
+        parent::__construct(...func_get_args());
     }
 }

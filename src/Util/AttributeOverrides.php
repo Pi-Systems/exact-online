@@ -2,6 +2,7 @@
 
 namespace PISystems\ExactOnline\Util;
 
+use PISystems\ExactOnline\Builder\Edm\UTF8CodeString;
 use PISystems\ExactOnline\Entity\Bulk\CRM\Accounts as BulkCRMAccounts;
 use PISystems\ExactOnline\Entity\CRM\Accounts as CRMAccounts;
 use PISystems\ExactOnline\Entity\Sales\SalesPriceListLinkedAccounts;
@@ -30,7 +31,7 @@ class AttributeOverrides implements ExactAttributeOverridesInterface
      */
     private function overrides(): array
     {
-        $cs = ['edm' => 'EDM\\UTF8CodeString'];
+        $cs = ['edm' => UTF8CodeString::class];
         return [
             CRMAccounts::class . '::$Code' => $cs,
             BulkCRMAccounts::class . '::$Code' => $cs,

@@ -313,9 +313,9 @@ abstract class ExactEnvironment /*permits Exact*/
         return $this->saveConfiguration();
     }
 
-    final public function uuid(?string $seed = null): string
+    final public function uuid(): string
     {
-        return $this->manager->uuidProvider->uuid($this->getDivision(), $seed);
+        return $this->manager->uuidProvider->uuid();
     }
 
     /**

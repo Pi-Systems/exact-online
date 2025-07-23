@@ -7,10 +7,10 @@ use PISystems\ExactOnline\Events\Created;
 use PISystems\ExactOnline\Model\ExactAppConfigurationInterface;
 use PISystems\ExactOnline\Model\RateLimits;
 use PISystems\ExactOnline\Model\RuntimeConfiguration;
-use PISystems\ExactOnline\Model\SeededUuidProviderInterface;
+use PISystems\ExactOnline\Model\UuidProviderInterface;
 use PISystems\ExactOnline\Polyfill\ExactEventDispatcher;
 use PISystems\ExactOnline\Polyfill\Validation;
-use PISystems\ExactOnline\Util\SeededUuidProvider;
+use PISystems\ExactOnline\Util\UuidProvider;
 use PISystems\ExactOnline\Util\WrappedEventDispatcher;
 use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Client\ClientInterface;
@@ -43,7 +43,7 @@ class ExactConnectionManager
         public readonly ClientInterface                             $client,
         public readonly LoggerInterface                             $logger,
         public readonly WrappedEventDispatcher|ExactEventDispatcher $dispatcher = new ExactEventDispatcher(),
-        public readonly SeededUuidProviderInterface                 $uuidProvider = new SeededUuidProvider(),
+        public readonly UuidProviderInterface $uuidProvider = new UuidProvider(),
     )
     {
         $this->instances = new \WeakMap();
